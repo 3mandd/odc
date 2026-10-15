@@ -19,6 +19,16 @@ Format (newest first, one entry per merged contracts change):
 
 ---
 
+## event-types.md v14 · evolution.md v9 — 2026-10-12 — `genesis.contracts` capped at 64 bytes (ADR-0038 decision 5, #355)
+
+- **ET-9** (operator, 2026-10-12): `contracts` MUST be at most **64 bytes**,
+  counted as the UTF-8 encoding of the decoded string (after unescaping), not
+  the escaped line bytes; empty or longer is `INVALID` at line 1. This closes
+  the gap where a `genesis` over 64 KiB was `VALID` by the type rules yet
+  unwritable by a ledger. **EV-25** now says every v1 value is bounded by its
+  own rule. No committed vector changes: the longest committed `contracts` is
+  12 bytes. Both verifiers owe the check (ADR-0038, owed list).
+
 ## event-types.md v13 · evolution.md v8 · event-schema.md v7 — 2026-10-12 — four contradictions resolved (ADR-0038, #355)
 
 The operator decided the four contradictions recorded in `memory/STATE.md`.
