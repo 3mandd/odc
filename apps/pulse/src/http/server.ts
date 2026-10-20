@@ -8,6 +8,7 @@ import Fastify, {
   type FastifyRequest,
   type FastifyServerOptions,
 } from "fastify";
+import type { CreationStore } from "../authoring/store.js";
 import type { ClaimService } from "../identity/claim.js";
 import type { Voter, VoterStore } from "../identity/store.js";
 import type { ConfirmationKey } from "../voting/confirmation.js";
@@ -23,6 +24,7 @@ import {
   type Suggestion,
   type SuggestionStore,
 } from "../voting/suggestions.js";
+import { registerCreationRoutes } from "./creation.js";
 import { registerMcpReads, type McpReadOptions } from "./mcp/route.js";
 import { SESSION_COOKIE, SessionSigner } from "./session.js";
 
@@ -66,6 +68,19 @@ export interface ServerDeps {
   suggestions: SuggestionStore;
   signer: SessionSigner;
   /**
+   * Poll creation and posting permission (ADR-0037). Optional so a test or a
+   * client test embedding this server need not care: without one, the
+   * creation routes answer 503 `creation_unavailable` and nothing is created.
+   */
+  creation?: CreationStore;
+  /**
+   * The web client's origin, exactly as a browser sends it in `Origin`. Every
+   * creation mutation must come from it. Trusted configuration only — never
+   * derived from `Host` or a forwarded header. Without it every creation
+   * mutation is refused, since no origin can match.
+   */
+  webOrigin?: string;
+  /**
    * Makes the one-way code a confirmed vote is stored with (ADR-0040).
    *
    * Optional only so that a test, or a client test embedding this server,
@@ -81,6 +96,8 @@ export interface ServerDeps {
   signInRateLimit?: { max: number; timeWindow: string };
   /** Suggestions allowed per client per window. */
   suggestRateLimit?: { max: number; timeWindow: string };
+  /** Poll-creation and posting-permission requests per client per window, per route. */
+  creationRateLimit?: { max: number; timeWindow: string };
   /** Overridable so tests get a ballot identity they can predict. */
   newBallotId?: () => string;
   /**
@@ -158,6 +175,12 @@ export async function createServer(deps: ServerDeps): Promise<FastifyInstance> {
     // status — the rate limiter's 429, a malformed JSON body's 400. Those are
     // answers, not faults, and must keep their status while taking our shape.
     const status = (error as { statusCode?: number }).statusCode ?? 500;
+    if (status === 413) {
+      return reply.code(413).send({
+        error: "body_too_large",
+        message: "That request is too large to send.",
+      });
+    }
     if (status === 429) {
       return reply.code(429).send({
         error: "too_many_requests",
@@ -619,6 +642,12 @@ export async function createServer(deps: ServerDeps): Promise<FastifyInstance> {
     },
   );
 
+  await registerCreationRoutes(app, {
+    creation: deps.creation,
+    webOrigin: deps.webOrigin,
+    currentVoter,
+    ...(deps.creationRateLimit ? { rateLimit: deps.creationRateLimit } : {}),
+  });
   registerMcpReads(app, deps.mcp);
   return app;
 }
