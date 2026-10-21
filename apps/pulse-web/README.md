@@ -38,9 +38,10 @@ container, so the page and the API share one address.
 | `/sign-in?token=…` | Where emailed sign-in links land.                                      |
 | `/preview/chat`    | A prototype with sample data only.                                     |
 
-The vote page, sign-in and question creation call the API. On the vote page,
-**Show me how** walks through the real controls; it never picks or submits an
-answer.
+The vote page, sign-in and question creation call the API. Each question opens
+with its vote card expanded. Choose an answer, then press Submit to save it.
+You can close the card and reopen it with Vote. **Show me how** walks through
+the real controls; it never picks or submits an answer.
 
 Question creation keeps a draft in this browser for up to an hour after a
 sign-in-required posting failure. Only the explicit sign-in recovery path
