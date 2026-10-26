@@ -1,7 +1,6 @@
 import { useId } from "react";
 import {
   Bar,
-  CartesianGrid,
   LabelList,
   BarChart as RechartsBarChart,
   Text,
@@ -12,7 +11,6 @@ import {
 import {
   BAR_GAP,
   BAR_RADIUS,
-  MAX_BAR,
   MAX_LINES,
   ROW_LABEL_GAP,
   TOP_ROOM,
@@ -154,11 +152,7 @@ export function BarChart({
               <line className="bar-chart__stripe" x1="3" y1="0" x2="3" y2="6" />
             </pattern>
           </defs>
-          <CartesianGrid
-            className="bar-chart__grid"
-            vertical={!columns}
-            horizontal={columns}
-          />
+          {/* No gridlines (operator, 2026-10-26): the axis and value labels carry the scale. */}
           {columns ? (
             <>
               <XAxis
@@ -206,7 +200,7 @@ export function BarChart({
               name={one.label}
               className={`bar-chart__series bar-chart__series--${at + 1}`}
               {...(at === 1 ? { fill: `url(#${stripeId})` } : {})}
-              maxBarSize={MAX_BAR}
+              maxBarSize={layout.bar}
               radius={
                 columns
                   ? [BAR_RADIUS, BAR_RADIUS, 0, 0]
@@ -226,28 +220,31 @@ export function BarChart({
           ))}
         </RechartsBarChart>
       </div>
-      <table className="visually-hidden">
-        <thead>
-          <tr>
-            <th scope="col">{caption}</th>
-            {series.map((one) => (
-              <th key={one.key} scope="col">
-                {one.label}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {data.map((datum) => (
-            <tr key={datum.id}>
-              <th scope="row">{fullLabel(datum)}</th>
+      {/* Hidden by a wrapper: a <table> ignores width and still lays out wide. */}
+      <div className="visually-hidden">
+        <table>
+          <thead>
+            <tr>
+              <th scope="col">{caption}</th>
               {series.map((one) => (
-                <td key={one.key}>{datum.values[one.key]?.text ?? ""}</td>
+                <th key={one.key} scope="col">
+                  {one.label}
+                </th>
               ))}
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {data.map((datum) => (
+              <tr key={datum.id}>
+                <th scope="row">{fullLabel(datum)}</th>
+                {series.map((one) => (
+                  <td key={one.key}>{datum.values[one.key]?.text ?? ""}</td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </figure>
   );
 }

@@ -117,3 +117,18 @@ it("stripes the second series as well as colouring it", () => {
   expect(second?.getAttribute("fill")).toBe(`url(#${pattern?.id})`);
   expect(document.querySelector(".bar-chart__swatch--2")).not.toBeNull();
 });
+
+it("draws axis lines but no gridlines", () => {
+  draw(3, 1);
+  expect(document.querySelector(".recharts-cartesian-grid")).toBeNull();
+  expect(
+    document.querySelector(".recharts-cartesian-axis-line"),
+  ).not.toBeNull();
+});
+
+it("hides the table inside a wrapper, since a table ignores a 1px width", () => {
+  draw(2);
+  const table = document.querySelector(".bar-chart table")!;
+  expect(table.parentElement?.classList.contains("visually-hidden")).toBe(true);
+  expect(table.classList.contains("visually-hidden")).toBe(false);
+});

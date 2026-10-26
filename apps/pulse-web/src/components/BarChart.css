@@ -64,9 +64,6 @@
   stroke: var(--chart-texture);
   stroke-width: calc(var(--hairline) * 2);
 }
-.bar-chart__grid line {
-  stroke: var(--chart-grid);
-}
 .bar-chart .recharts-cartesian-axis-line {
   stroke: var(--chart-grid);
 }

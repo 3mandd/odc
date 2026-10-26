@@ -2,7 +2,9 @@ import { describe, expect, it } from "vitest";
 import {
   BAR_GAP,
   COLUMN_LIMIT,
-  MAX_BAR,
+  MAX_COLUMN_BAR,
+  columnBar,
+  rowBar,
   MAX_LINES,
   chartLayout,
   valueSpacing,
@@ -38,9 +40,7 @@ describe("choosing columns or rows", () => {
     }
   });
 
-  it("turns to rows when two series' value labels would touch, at any width", () => {
-    // Recharts caps paired bars at MAX_BAR and sets them BAR_GAP apart, so
-    // their labels' centres stay 26px apart however wide the column is.
+  it("puts two series in columns only where the paired labels fit", () => {
     const twoSeries = (width: number, valueLabels: string[]) =>
       chartLayout({
         width,
@@ -48,18 +48,20 @@ describe("choosing columns or rows", () => {
         valueLabels,
         seriesCount: 2,
       }).orientation;
-    for (const width of [280, 375, 700, 1200]) {
-      expect(twoSeries(width, ["42.9%", "100%"])).toBe("rows");
-    }
-    // Labels narrow enough for the gap still get columns.
-    expect(twoSeries(700, ["5%", "9%"])).toBe("columns");
+    // Phones: paired bars are too narrow for "42.9%" side by side.
+    expect(twoSeries(280, ["42.9%", "100%"])).toBe("rows");
+    expect(twoSeries(375, ["42.9%", "100%"])).toBe("rows");
+    // Wider screens give each bar room, up to its cap.
+    expect(twoSeries(700, ["42.9%", "100%"])).toBe("columns");
+    expect(twoSeries(1200, ["42.9%", "100%"])).toBe("columns");
   });
 
   it("spaces paired value labels as Recharts places the bars", () => {
     expect(valueSpacing(110, 1)).toBe(110);
-    expect(valueSpacing(110, 2)).toBe(MAX_BAR + BAR_GAP);
-    // A narrow band: the bars share it, less the category and bar gaps.
-    expect(valueSpacing(40, 2)).toBeCloseTo((40 * 0.8 - BAR_GAP) / 2 + BAR_GAP);
+    expect(valueSpacing(110, 2)).toBeCloseTo(
+      (110 * 0.8 - BAR_GAP) / 2 + BAR_GAP,
+    );
+    expect(valueSpacing(400, 2)).toBe(MAX_COLUMN_BAR + BAR_GAP);
   });
 
   it("turns to rows past the column limit or for a word wider than its column", () => {
@@ -112,5 +114,43 @@ describe("choosing columns or rows", () => {
     // 7 rows of 3 label lines (16px each) plus padding, and the axis.
     expect(layout.height).toBe(7 * (3 * 16 + 10) + 40);
     expect(layout.right).toBeGreaterThanOrEqual(4 * 7.5);
+  });
+});
+
+describe("bar thickness follows the number of options", () => {
+  it("widens columns for fewer options, up to a cap", () => {
+    const band = (count: number) => (375 - 44) / count;
+    const two = columnBar(band(2), 1);
+    const three = columnBar(band(3), 1);
+    const six = columnBar(band(6), 1);
+    expect(two).toBe(MAX_COLUMN_BAR);
+    expect(three).toBe(MAX_COLUMN_BAR);
+    expect(six).toBeLessThan(three);
+    expect(columnBar(band(3), 2)).toBeLessThan(three);
+  });
+
+  it("thins horizontal bars as the list grows, within limits", () => {
+    expect(rowBar(2)).toBe(28);
+    expect(rowBar(3)).toBe(28);
+    expect(rowBar(5)).toBe(24);
+    expect(rowBar(25)).toBe(14);
+  });
+
+  it("gives each layout its bar size", () => {
+    const columns = chartLayout({
+      width: 700,
+      labels: ["Yes", "No"],
+      valueLabels: ["50%"],
+      seriesCount: 1,
+    });
+    expect(columns.bar).toBe(MAX_COLUMN_BAR);
+    const rows = chartLayout({
+      width: 280,
+      labels: Array.from({ length: 8 }, (_, at) => `Option ${at}`),
+      valueLabels: ["12.5%"],
+      seriesCount: 1,
+    });
+    expect(rows.orientation).toBe("rows");
+    expect(rows.bar).toBe(rowBar(8));
   });
 });
