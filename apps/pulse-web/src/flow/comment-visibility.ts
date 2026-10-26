@@ -88,7 +88,11 @@ export function commentsWithStance(
   );
 }
 
-/** A distinct random slice on each press when enough samples exist. */
+/**
+ * Three visible comments at random. When more than three exist, the result is
+ * never the same set as `previous`, in any order, so a press always shows a
+ * change.
+ */
 export function randomSample(
   comments: readonly SampleComment[],
   previous: readonly string[] = [],
@@ -100,11 +104,10 @@ export function randomSample(
     [pool[index], pool[other]] = [pool[other]!, pool[index]!];
   }
   const sample = pool.slice(0, 3);
-  if (
-    pool.length > 3 &&
-    sample.map((one) => one.id).join() === previous.join()
-  ) {
-    return pool.slice(1, 4);
-  }
+  const same =
+    sample.length === previous.length &&
+    sample.every((one) => previous.includes(one.id));
+  // Swap one in from outside the sample, so the set always changes.
+  if (same && pool.length > 3) sample[2] = pool[3]!;
   return sample;
 }

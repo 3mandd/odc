@@ -77,9 +77,42 @@ it("shuffles only the sample and never changes the chronological thread", async 
   expect(sampleSection.querySelectorAll("li")).toHaveLength(3);
   const button = screen.getByRole("button", { name: "Shuffle sample" });
   button.focus();
+  const before = [...sampleSection.querySelectorAll("li")].map(
+    (one) => one.textContent,
+  );
   await userEvent.keyboard("{Enter}");
   expect(sampleSection.querySelectorAll("li")).toHaveLength(3);
+  const after = [...sampleSection.querySelectorAll("li")].map(
+    (one) => one.textContent,
+  );
+  expect(after.every((one) => before.includes(one))).toBe(false);
   expect(baseline.textContent).toBe(original);
+  expect(within(sampleSection).getByRole("status").textContent).toBe(
+    "New random sample. The thread and any votes are unchanged.",
+  );
+});
+
+it("changes the sampled set even when the shuffle lands on the same three", () => {
+  // A random() of 0.999 leaves every position where it is.
+  const first = randomSample(SAMPLE_COMMENTS, [], () => 0.999);
+  const firstIds = first.map((one) => one.id);
+  for (const previous of [firstIds, [...firstIds].reverse()]) {
+    const next = randomSample(SAMPLE_COMMENTS, previous, () => 0.999);
+    expect(next).toHaveLength(3);
+    expect(next.every((one) => previous.includes(one.id))).toBe(false);
+  }
+});
+
+it("counts one sample comment in the singular", async () => {
+  render(<CommentVisibilityPreview />);
+  await userEvent.selectOptions(
+    screen.getByRole("combobox", { name: "Reference viewpoint" }),
+    "Housing",
+  );
+  const opposing = screen
+    .getByRole("heading", { name: "Opposing Housing" })
+    .closest("section")!;
+  expect(within(opposing).getByText("1 sample comment")).toBeTruthy();
 });
 
 it("never samples a hidden comment", () => {

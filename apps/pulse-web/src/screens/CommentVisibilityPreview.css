@@ -1,29 +1,33 @@
+/*
+ * The comment-visibility prototype (#424). Sample data on the same dark ground
+ * as every other screen, so it is judged on the idea rather than a new look.
+ */
 .comment-preview {
   min-height: 100dvh;
-  padding: clamp(16px, 4vw, 48px);
+  padding: clamp(calc(var(--step) * 2), 4vw, calc(var(--step) * 6));
   box-sizing: border-box;
   color: var(--ballot-ink);
   background: var(--ballot-page);
   line-height: 1.5;
 }
 .comment-preview__shell {
-  max-width: 1200px;
+  max-width: calc(var(--step) * 150);
   margin-inline: auto;
 }
 .comment-preview h1 {
   max-width: 28ch;
-  font-size: clamp(1.75rem, 4vw, 3rem);
+  font-size: var(--welcome-hero);
   line-height: 1.15;
 }
 .comment-preview h2 {
   margin: 0;
-  font-size: 1.15rem;
+  font-size: calc(var(--t-body) * 1.2);
   line-height: 1.35;
 }
 .comment-preview__badge {
   display: inline-block;
   margin: 0;
-  padding: 4px 10px;
+  padding: calc(var(--step) / 2) calc(var(--step) * 1.25);
   border-radius: var(--r-pill);
   background: var(--surface-hover);
   font-weight: 700;
@@ -32,14 +36,14 @@
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 12px;
-  margin-block: 24px 12px;
+  gap: calc(var(--step) * 1.5);
+  margin-block: var(--gutter) calc(var(--step) * 1.5);
   font-weight: 700;
 }
 .comment-preview select,
 .comment-preview button {
-  padding: 8px 12px;
-  border: 1px solid var(--control-line);
+  padding: var(--step) calc(var(--step) * 1.5);
+  border: var(--hairline) solid var(--control-line);
   border-radius: var(--r-control);
   background: var(--surface-hover);
   color: var(--ballot-ink);
@@ -50,8 +54,8 @@
 }
 .comment-preview select:focus-visible,
 .comment-preview button:focus-visible {
-  outline: 2px solid var(--focus-ring);
-  outline-offset: 2px;
+  outline: calc(var(--hairline) * 2) solid var(--focus-ring);
+  outline-offset: calc(var(--hairline) * 2);
 }
 .comment-preview__note {
   max-width: 80ch;
@@ -60,15 +64,15 @@
 .comment-preview__views {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 16px;
+  gap: calc(var(--step) * 2);
   align-items: stretch;
-  margin-block: 24px;
+  margin-block: var(--gutter);
 }
 .comment-preview__views > section,
 .comment-preview__baseline {
   min-width: 0;
-  padding: 20px;
-  border: 1px solid var(--ballot-line);
+  padding: calc(var(--step) * 2.5);
+  border: var(--hairline) solid var(--ballot-line);
   border-radius: var(--r-card);
   background: var(--surface-rest);
 }
@@ -76,29 +80,38 @@
   min-height: 3em;
   color: var(--ballot-ink-muted);
 }
+/* A live region, so always in the page; empty, it takes no height. */
+.comment-preview__views > section > .comment-preview__shuffled {
+  min-height: 0;
+  margin: var(--step) 0 0;
+  font-size: var(--t-small);
+}
+.comment-preview__views > section > .comment-preview__shuffled:empty {
+  margin: 0;
+}
 .comment-preview__comments {
   display: grid;
-  gap: 10px;
+  gap: calc(var(--step) * 1.25);
   list-style: none;
-  margin: 16px 0 0;
+  margin: calc(var(--step) * 2) 0 0;
   padding: 0;
 }
 .comment-preview__comments li {
   min-width: 0;
-  padding: 12px;
-  border: 1px solid var(--ballot-line);
+  padding: calc(var(--step) * 1.5);
+  border: var(--hairline) solid var(--ballot-line);
   border-radius: var(--r-control);
   overflow-wrap: anywhere;
 }
 .comment-preview__comments li p {
-  margin: 0 0 8px;
+  margin: 0 0 var(--step);
 }
 .comment-preview__comments small,
 .comment-preview__empty {
   color: var(--ballot-ink-muted);
 }
 .comment-preview__baseline {
-  margin-bottom: 40px;
+  margin-bottom: calc(var(--step) * 5);
 }
 @media (max-width: 800px) {
   .comment-preview__views {

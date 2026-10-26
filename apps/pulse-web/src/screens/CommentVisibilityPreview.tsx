@@ -33,10 +33,15 @@ function CommentList({
   );
 }
 
+function sampleCount(n: number) {
+  return n === 1 ? "1 sample comment" : `${n} sample comments`;
+}
+
 /** #424: an isolated comparison, not a ranking rule for live comments. */
 export function CommentVisibilityPreview() {
   const [reference, setReference] = useState<ReferenceChoice>("Garden");
   const [random, setRandom] = useState(() => randomSample(SAMPLE_COMMENTS));
+  const [shuffled, setShuffled] = useState(0);
   const visible = visibleComments(SAMPLE_COMMENTS);
   const agreeing = commentsWithStance(SAMPLE_COMMENTS, reference, "support");
   const opposing = commentsWithStance(SAMPLE_COMMENTS, reference, "oppose");
@@ -75,11 +80,12 @@ export function CommentVisibilityPreview() {
         </p>
         <div
           className="comment-preview__views"
+          role="group"
           aria-label="Equal visibility comparison"
         >
           <section aria-labelledby="comment-preview-agree">
             <h2 id="comment-preview-agree">Agreeing with {reference}</h2>
-            <p>{agreeing.length} sample comments</p>
+            <p>{sampleCount(agreeing.length)}</p>
             <CommentList
               comments={agreeing}
               empty={`No sample comments explicitly support ${reference}.`}
@@ -87,7 +93,7 @@ export function CommentVisibilityPreview() {
           </section>
           <section aria-labelledby="comment-preview-oppose">
             <h2 id="comment-preview-oppose">Opposing {reference}</h2>
-            <p>{opposing.length} sample comments</p>
+            <p>{sampleCount(opposing.length)}</p>
             <CommentList
               comments={opposing}
               empty={`No sample comments explicitly oppose ${reference}.`}
@@ -98,17 +104,27 @@ export function CommentVisibilityPreview() {
             <p>Three visible comments, regardless of stance</p>
             <button
               type="button"
-              onClick={() =>
+              onClick={() => {
                 setRandom(
                   randomSample(
                     SAMPLE_COMMENTS,
                     random.map((one) => one.id),
                   ),
-                )
-              }
+                );
+                setShuffled((n) => n + 1);
+              }}
             >
               Shuffle sample
             </button>
+            {/* Says a shuffle changed only this group, not the discussion. */}
+            <p className="comment-preview__shuffled" role="status">
+              {shuffled > 0 ? (
+                // A new node each press, so a repeat is read out again.
+                <span key={shuffled}>
+                  New random sample. The thread and any votes are unchanged.
+                </span>
+              ) : null}
+            </p>
             <CommentList
               comments={random}
               empty="No visible comments to sample."
