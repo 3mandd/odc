@@ -7,7 +7,7 @@ import {
   within,
 } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { afterEach, expect, it, vi } from "vitest";
+import { afterEach, beforeAll, expect, it, vi } from "vitest";
 import { ApiError } from "../src/api/types.js";
 import type { Ballot, CastOutcome, Poll } from "../src/api/types.js";
 import { closingNote } from "../src/flow/conversation.js";
@@ -15,6 +15,10 @@ import { Conversation } from "../src/screens/Conversation.js";
 import { graph, poll, results, stubApi } from "./stub-api.js";
 
 afterEach(cleanup);
+// ResultsPanel lazy-loads the chart; load its module up front so a cold
+// test run does not outwait findBy's default timeout transforming Recharts.
+beforeAll(() => import("../src/components/BarChart.js"));
+
 const main = () => within(screen.getByRole("main"));
 function tally(p: Poll, ballot: Ballot) {
   return results({
@@ -129,7 +133,7 @@ it("shows loading, empty and errors with a working retry", async () => {
     await main().findByRole("heading", { name: poll().question, level: 1 }),
   ).toBeTruthy();
 });
-it("keeps results under the answer while the bottom drawer is only for voting", async () => {
+it("puts one results banner after the question and before the thread, with voting in the drawer", async () => {
   const p = poll();
   let attempt = 0;
   const cast = vi.fn(
@@ -146,7 +150,19 @@ it("keeps results under the answer while the bottom drawer is only for voting", 
   const user = await answer();
   const standing = main().getByRole("group", { name: "How people answered" });
   const answerRow = main().getByText("You picked Yes.").closest("li")!;
-  expect(answerRow.contains(standing)).toBe(true);
+  const heading = main().getByRole("heading", { name: p.question, level: 1 });
+  expect(
+    heading.compareDocumentPosition(standing) &
+      Node.DOCUMENT_POSITION_FOLLOWING,
+  ).toBeTruthy();
+  expect(
+    standing.compareDocumentPosition(answerRow) &
+      Node.DOCUMENT_POSITION_FOLLOWING,
+  ).toBeTruthy();
+  expect(
+    main().getAllByRole("group", { name: "How people answered" }),
+  ).toHaveLength(1);
+  expect(standing.classList.contains("results--compact")).toBe(true);
   expect(
     within(drawer).queryByRole("group", { name: "How people answered" }),
   ).toBeNull();
@@ -199,12 +215,14 @@ it("keeps the saved answer and its results when backing out of a change", async 
     name: "Change my answer",
   });
   expect(document.activeElement).toBe(handle);
-  const row = main().getByText("You picked Yes.").closest("li")!;
-  const standing = within(row).getByRole("group", {
+  expect(main().getByText("You picked Yes.")).toBeTruthy();
+  // One results banner above the thread (#453), still showing the saved answer.
+  const standing = main().getByRole("group", {
     name: "How people answered",
   });
   expect(
-    within(standing).getByText(/yours/i).closest("li")?.textContent,
+    (await within(standing).findByRole("rowheader", { name: /\(yours\)/ }))
+      .textContent,
   ).toMatch(/Yes/);
   expect(cast).toHaveBeenCalledExactlyOnceWith(p.id, [1]);
   // Reopening starts from the saved choice, not the unsent one.
@@ -353,7 +371,9 @@ it("sends every approval pick, follows its lowest-index edge, and retains the co
   await user.click(within(card()).getByRole("button", { name: "Submit" }));
   await main().findByText("Counted");
   expect(cast).toHaveBeenCalledExactlyOnceWith(p.id, [1, 0]);
-  expect(within(card()).getAllByText("yours")).toHaveLength(2);
+  expect(
+    await within(card()).findAllByRole("rowheader", { name: /\(yours\)/ }),
+  ).toHaveLength(2);
   await user.click(within(card()).getByRole("button", { name: "Next" }));
   expect(
     await main().findByRole("heading", { name: second.question, level: 1 }),
@@ -419,6 +439,7 @@ it("refuses a known closed poll and lets a non-voter read final results", async 
   await userEvent.click(main().getByRole("button", { name: "See results" }));
   expect(await main().findByText("Nobody answered this one.")).toBeTruthy();
   const standing = main().getByRole("group", { name: "How people answered" });
+  expect(standing.classList.contains("results--compact")).toBe(true);
   expect(
     screen.getByRole("complementary", { name: "Voting" }).contains(standing),
   ).toBe(false);
