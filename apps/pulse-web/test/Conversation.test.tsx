@@ -482,6 +482,7 @@ it("keyboard-only picking and confirmation casts exactly once", async () => {
   render(<Conversation api={stubApi({ cast })} pollId="ads-free" />);
   await main().findByRole("heading", { name: poll().question, level: 1 });
   const user = userEvent.setup();
+  await user.tab(); // Copy link, under the question
   await user.tab(); // Close
   await user.tab(); // First choice
   expect(document.activeElement).toBe(
@@ -850,6 +851,52 @@ it("shows the just-posted line only when told the question was just posted", asy
   render(<Conversation api={stubApi()} pollId="ads-free" />);
   await main().findByRole("heading", { name: poll().question, level: 1 });
   expect(screen.queryByText(/Your question is live/)).toBeNull();
+});
+
+it("offers one Copy link under the question, and none while the posted line shows it", async () => {
+  const writeText = vi.fn(() => Promise.resolve());
+  Object.defineProperty(navigator, "clipboard", {
+    value: { writeText },
+    configurable: true,
+  });
+  try {
+    const { unmount } = render(
+      <Conversation api={stubApi()} pollId="ads-free" />,
+    );
+    await main().findByRole("heading", { name: poll().question, level: 1 });
+    expect(main().getAllByRole("button", { name: /Copy link/ })).toHaveLength(
+      1,
+    );
+    await userEvent.click(
+      main().getByRole("button", { name: `Copy link to ${poll().question}` }),
+    );
+    expect(writeText).toHaveBeenCalledWith(
+      new URL("/?poll=ads-free", location.href).href,
+    );
+    expect(await main().findByText("Copied")).toBeTruthy();
+    unmount();
+
+    render(
+      <Conversation
+        api={stubApi()}
+        pollId="ads-free"
+        posted={{
+          url: "https://pulse.test/?poll=ads-free",
+          onDismiss: vi.fn(),
+        }}
+      />,
+    );
+    await main().findByRole("heading", { name: poll().question, level: 1 });
+    expect(screen.getAllByRole("button", { name: /Copy link/ })).toHaveLength(
+      1,
+    );
+    expect(screen.getByText(/Your question is live/)).toBeTruthy();
+  } finally {
+    Object.defineProperty(navigator, "clipboard", {
+      value: undefined,
+      configurable: true,
+    });
+  }
 });
 
 it("ends the just-posted line when Next moves to another question", async () => {

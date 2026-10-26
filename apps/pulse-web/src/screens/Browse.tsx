@@ -1,7 +1,6 @@
 import { useEffect, useRef } from "react";
 import type { PulseApi } from "../api/types.js";
 import { pathOf } from "../flow/route.js";
-import { useCopyLink } from "../hooks/use-copy-link.js";
 import { SiteBanner } from "./SiteBanner.js";
 import { ViewState } from "../components/ViewState.js";
 import { usePollList } from "../hooks/use-poll-list.js";
@@ -64,10 +63,7 @@ export function Browse({
                   <a href={pathOf({ kind: "conversation", pollId: p.id })}>
                     {p.question}
                   </a>
-                  <span className="browse__status">
-                    {p.open ? "Open" : "Closed · View results"}
-                  </span>
-                  <CopyQuestionLink pollId={p.id} question={p.question} />
+                  <span>{p.open ? "Open" : "Closed · View results"}</span>
                 </li>
               ))}
             </ul>
@@ -96,41 +92,6 @@ export function Browse({
           </button>
         ) : null}
       </main>
-    </div>
-  );
-}
-
-/** Every listed question has a stable direct link, even after its author leaves. */
-function CopyQuestionLink({
-  pollId,
-  question,
-}: {
-  pollId: string;
-  question: string;
-}) {
-  const path = pathOf({ kind: "conversation", pollId });
-  const url = new URL(path, window.location.href).href;
-  const { copy, field, copyLink, status } = useCopyLink(url);
-
-  return (
-    <div className="browse__share">
-      <button
-        type="button"
-        aria-label={`Copy link to ${question}`}
-        onClick={copyLink}
-      >
-        Copy link
-      </button>
-      {copy === "manual" ? (
-        <input
-          ref={field}
-          readOnly
-          value={url}
-          aria-label={`Link to ${question}`}
-          onFocus={(event) => event.currentTarget.select()}
-        />
-      ) : null}
-      <span role="status">{status}</span>
     </div>
   );
 }
