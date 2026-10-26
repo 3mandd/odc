@@ -13,6 +13,7 @@ import { VoteCard } from "../components/VoteCard.js";
 import { ClosedResults } from "../components/ClosedResults.js";
 import { ViewState } from "../components/ViewState.js";
 import { PostedBanner } from "../components/PostedBanner.js";
+import { CopyLink } from "../components/CopyLink.js";
 import { useSession } from "../hooks/use-session.js";
 import type { Session } from "../hooks/use-session.js";
 import { SiteBanner } from "./SiteBanner.js";
@@ -176,6 +177,8 @@ export function Conversation({
           onCounted={counted}
           onBusy={setBusy}
           onGo={go}
+          // The posting banner already offers Copy link; one is enough.
+          shareable={!(posted && at === pollId)}
         />
       </main>
     </div>
@@ -191,6 +194,7 @@ function Question({
   onCounted,
   onBusy,
   onGo,
+  shareable,
 }: {
   api: PulseApi;
   pollId: string;
@@ -201,6 +205,7 @@ function Question({
   onCounted: (answer: Answer) => void;
   onBusy: (busy: boolean) => void;
   onGo: (id: string) => void;
+  shareable: boolean;
 }) {
   const [attempt, setAttempt] = useState(0);
   // Retrying remounts the loader so usePoll's request cleanup discards stale results.
@@ -216,6 +221,7 @@ function Question({
       onCounted={onCounted}
       onBusy={onBusy}
       onGo={onGo}
+      shareable={shareable}
       onRetry={() => setAttempt((one) => one + 1)}
     />
   );
@@ -231,6 +237,7 @@ function LoadedQuestion({
   onCounted,
   onBusy,
   onGo,
+  shareable,
   onRetry,
 }: {
   api: PulseApi;
@@ -242,6 +249,8 @@ function LoadedQuestion({
   onCounted: (answer: Answer) => void;
   onBusy: (busy: boolean) => void;
   onGo: (id: string) => void;
+  /** Whether to offer Copy link under the question. */
+  shareable: boolean;
   onRetry: () => void;
 }) {
   const loaded = usePoll(api, pollId);
@@ -280,6 +289,17 @@ function LoadedQuestion({
                     <p className="conversation__byline">
                       {byline(poll.attribution)}
                     </p>
+                  ) : null}
+                  {shareable ? (
+                    <CopyLink
+                      url={
+                        new URL(
+                          pathOf({ kind: "conversation", pollId: poll.id }),
+                          window.location.href,
+                        ).href
+                      }
+                      question={poll.question}
+                    />
                   ) : null}
                 </section>
               )}
