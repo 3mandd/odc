@@ -48,10 +48,16 @@
   outline-offset: calc(var(--hairline) * 2);
 }
 .browse__share input {
+  box-sizing: border-box;
   min-width: 0;
   max-width: 100%;
   flex: 1 1 16rem;
   font: inherit;
+  padding: calc(var(--step) / 2) var(--step);
+  color: var(--ballot-ink);
+  background: var(--ballot-chip);
+  border: var(--hairline) solid var(--ballot-line);
+  border-radius: var(--r-control);
 }
 .browse__list a:focus-visible {
   outline: calc(var(--hairline) * 2) solid var(--focus-ring);

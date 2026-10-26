@@ -1,6 +1,7 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import type { PulseApi } from "../api/types.js";
 import { pathOf } from "../flow/route.js";
+import { useCopyLink } from "../hooks/use-copy-link.js";
 import { SiteBanner } from "./SiteBanner.js";
 import { ViewState } from "../components/ViewState.js";
 import { usePollList } from "../hooks/use-poll-list.js";
@@ -107,27 +108,9 @@ function CopyQuestionLink({
   pollId: string;
   question: string;
 }) {
-  const [copy, setCopy] = useState<"idle" | "copied" | "manual">("idle");
-  const field = useRef<HTMLInputElement>(null);
   const path = pathOf({ kind: "conversation", pollId });
   const url = new URL(path, window.location.href).href;
-
-  useEffect(() => {
-    if (copy === "manual") field.current?.select();
-  }, [copy]);
-
-  function copyLink() {
-    setCopy("idle");
-    const clipboard = navigator.clipboard as Clipboard | undefined;
-    if (!clipboard) {
-      setCopy("manual");
-      return;
-    }
-    clipboard.writeText(url).then(
-      () => setCopy("copied"),
-      () => setCopy("manual"),
-    );
-  }
+  const { copy, field, copyLink, status } = useCopyLink(url);
 
   return (
     <div className="browse__share">
@@ -147,13 +130,7 @@ function CopyQuestionLink({
           onFocus={(event) => event.currentTarget.select()}
         />
       ) : null}
-      <span role="status">
-        {copy === "copied"
-          ? "Copied"
-          : copy === "manual"
-            ? "Copy the selected link."
-            : ""}
-      </span>
+      <span role="status">{status}</span>
     </div>
   );
 }

@@ -117,6 +117,14 @@ it("offers a selectable link when clipboard access is unavailable", async () => 
     expect(field.selectionStart).toBe(0);
     expect(field.selectionEnd).toBe(field.value.length);
   });
+
+  // A second press selects it again, though the field is already showing.
+  field.setSelectionRange(0, 0);
+  await userEvent.click(
+    screen.getByRole("button", { name: "Copy link to Question one" }),
+  );
+  expect(field.selectionStart).toBe(0);
+  expect(field.selectionEnd).toBe(field.value.length);
 });
 
 it("shows loading, retry and empty states with useful destinations", async () => {
