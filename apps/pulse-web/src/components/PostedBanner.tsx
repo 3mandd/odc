@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCopyLink } from "../hooks/use-copy-link.js";
 import "./PostedBanner.css";
 
 /**
@@ -18,26 +18,7 @@ export function PostedBanner({
   url: string;
   onDismiss: () => void;
 }) {
-  const [copy, setCopy] = useState<"idle" | "copied" | "manual">("idle");
-  const field = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    if (copy === "manual") field.current?.select();
-  }, [copy]);
-
-  function copyLink() {
-    // Emptied first, so a second "Copied" is a change the status reads out.
-    setCopy("idle");
-    const clipboard = navigator.clipboard as Clipboard | undefined;
-    if (!clipboard) {
-      setCopy("manual");
-      return;
-    }
-    clipboard.writeText(url).then(
-      () => setCopy("copied"),
-      () => setCopy("manual"),
-    );
-  }
+  const { copy, field, copyLink, status } = useCopyLink(url);
 
   return (
     <div className="posted">
@@ -66,11 +47,7 @@ export function PostedBanner({
         />
       ) : null}
       <p className="posted__status" role="status">
-        {copy === "copied"
-          ? "Copied"
-          : copy === "manual"
-            ? "Copy the selected link."
-            : ""}
+        {status}
       </p>
     </div>
   );

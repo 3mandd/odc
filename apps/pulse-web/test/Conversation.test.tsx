@@ -7,7 +7,7 @@ import {
   within,
 } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { afterEach, expect, it, vi } from "vitest";
+import { afterEach, beforeAll, expect, it, vi } from "vitest";
 import { ApiError } from "../src/api/types.js";
 import type { Ballot, CastOutcome, Poll } from "../src/api/types.js";
 import { closingNote } from "../src/flow/conversation.js";
@@ -15,6 +15,10 @@ import { Conversation } from "../src/screens/Conversation.js";
 import { graph, poll, results, stubApi } from "./stub-api.js";
 
 afterEach(cleanup);
+// ResultsPanel lazy-loads the chart; load its module up front so a cold
+// test run does not outwait findBy's default timeout transforming Recharts.
+beforeAll(() => import("../src/components/BarChart.js"));
+
 const main = () => within(screen.getByRole("main"));
 function tally(p: Poll, ballot: Ballot) {
   return results({
@@ -129,7 +133,7 @@ it("shows loading, empty and errors with a working retry", async () => {
     await main().findByRole("heading", { name: poll().question, level: 1 }),
   ).toBeTruthy();
 });
-it("keeps results under the answer while the bottom drawer is only for voting", async () => {
+it("puts one results banner after the question and before the thread, with voting in the drawer", async () => {
   const p = poll();
   let attempt = 0;
   const cast = vi.fn(
@@ -146,7 +150,19 @@ it("keeps results under the answer while the bottom drawer is only for voting", 
   const user = await answer();
   const standing = main().getByRole("group", { name: "How people answered" });
   const answerRow = main().getByText("You picked Yes.").closest("li")!;
-  expect(answerRow.contains(standing)).toBe(true);
+  const heading = main().getByRole("heading", { name: p.question, level: 1 });
+  expect(
+    heading.compareDocumentPosition(standing) &
+      Node.DOCUMENT_POSITION_FOLLOWING,
+  ).toBeTruthy();
+  expect(
+    standing.compareDocumentPosition(answerRow) &
+      Node.DOCUMENT_POSITION_FOLLOWING,
+  ).toBeTruthy();
+  expect(
+    main().getAllByRole("group", { name: "How people answered" }),
+  ).toHaveLength(1);
+  expect(standing.classList.contains("results--compact")).toBe(true);
   expect(
     within(drawer).queryByRole("group", { name: "How people answered" }),
   ).toBeNull();
@@ -199,12 +215,14 @@ it("keeps the saved answer and its results when backing out of a change", async 
     name: "Change my answer",
   });
   expect(document.activeElement).toBe(handle);
-  const row = main().getByText("You picked Yes.").closest("li")!;
-  const standing = within(row).getByRole("group", {
+  expect(main().getByText("You picked Yes.")).toBeTruthy();
+  // One results banner above the thread (#453), still showing the saved answer.
+  const standing = main().getByRole("group", {
     name: "How people answered",
   });
   expect(
-    within(standing).getByText(/yours/i).closest("li")?.textContent,
+    (await within(standing).findByRole("rowheader", { name: /\(yours\)/ }))
+      .textContent,
   ).toMatch(/Yes/);
   expect(cast).toHaveBeenCalledExactlyOnceWith(p.id, [1]);
   // Reopening starts from the saved choice, not the unsent one.
@@ -353,7 +371,9 @@ it("sends every approval pick, follows its lowest-index edge, and retains the co
   await user.click(within(card()).getByRole("button", { name: "Submit" }));
   await main().findByText("Counted");
   expect(cast).toHaveBeenCalledExactlyOnceWith(p.id, [1, 0]);
-  expect(within(card()).getAllByText("yours")).toHaveLength(2);
+  expect(
+    await within(card()).findAllByRole("rowheader", { name: /\(yours\)/ }),
+  ).toHaveLength(2);
   await user.click(within(card()).getByRole("button", { name: "Next" }));
   expect(
     await main().findByRole("heading", { name: second.question, level: 1 }),
@@ -419,6 +439,7 @@ it("refuses a known closed poll and lets a non-voter read final results", async 
   await userEvent.click(main().getByRole("button", { name: "See results" }));
   expect(await main().findByText("Nobody answered this one.")).toBeTruthy();
   const standing = main().getByRole("group", { name: "How people answered" });
+  expect(standing.classList.contains("results--compact")).toBe(true);
   expect(
     screen.getByRole("complementary", { name: "Voting" }).contains(standing),
   ).toBe(false);
@@ -436,12 +457,15 @@ it("handles a poll closing during submit without offering another cast", async (
   const cast = vi.fn(async () => ({ status: "closed" as const }));
   render(<Conversation api={stubApi({ cast })} pollId="ads-free" />);
   await main().findByRole("heading", { name: poll().question, level: 1 });
+  const note = main().getByText(closingNote(poll()));
   openCard();
   const user = userEvent.setup();
   await user.click(within(card()).getByRole("radio", { name: "Yes" }));
   await user.click(within(card()).getByRole("button", { name: "Submit" }));
   expect(await main().findByText("This one has closed.")).toBeTruthy();
   expect(within(card()).queryByRole("button", { name: "Submit" })).toBeNull();
+  expect(main().getByText("This question has closed.")).toBe(note);
+  expect(main().queryByText(closingNote(poll()))).toBeNull();
   expect(cast).toHaveBeenCalledOnce();
 });
 it("a failed send keeps the picks for retry", async () => {
@@ -479,6 +503,7 @@ it("keyboard-only picking and confirmation casts exactly once", async () => {
   render(<Conversation api={stubApi({ cast })} pollId="ads-free" />);
   await main().findByRole("heading", { name: poll().question, level: 1 });
   const user = userEvent.setup();
+  await user.tab(); // Copy link, under the question
   await user.tab(); // Close
   await user.tab(); // First choice
   expect(document.activeElement).toBe(
@@ -778,14 +803,7 @@ it("does not offer to forget to someone who is signed in", async () => {
   ).toBeNull();
 });
 
-/*
- * Operator walkthrough, 2026-10-21: on a phone the question and its closing
- * date were drawn twice, at the top of the page and in the card that is open
- * on load. The card says them; the page heading stays for focus and screen
- * readers, and is merged out of sight (`.conversation__hero--merged`) until
- * the card is closed.
- */
-it("says the question and closing date once while the card is open", async () => {
+it("keeps the closing note in the same page node when voting opens and closes", async () => {
   const p = poll({ closesAt: "2030-05-01T12:00:00.000Z" });
   const user = userEvent.setup();
   render(<Conversation api={stubApi({ poll: async () => p })} pollId={p.id} />);
@@ -793,16 +811,18 @@ it("says the question and closing date once while the card is open", async () =>
     name: p.question,
     level: 1,
   });
-  await waitFor(() => expect(document.activeElement).toBe(heading));
-  expect(heading.closest(".conversation__hero--merged")).not.toBeNull();
+  const hero = heading.parentElement!;
+  const note = within(hero).getByText(closingNote(p));
   expect(screen.getAllByText(closingNote(p))).toHaveLength(1);
-
+  expect(within(card()).queryByText(closingNote(p))).toBeNull();
   await user.click(within(card()).getByRole("button", { name: "Close" }));
-  const shown = main().getByRole("heading", { name: p.question, level: 1 });
-  expect(shown.closest(".conversation__hero--merged")).toBeNull();
+  expect(within(hero).getByText(closingNote(p))).toBe(note);
+  await user.click(main().getByRole("button", { name: "Vote" }));
+  expect(within(hero).getByText(closingNote(p))).toBe(note);
   expect(screen.getAllByText(closingNote(p))).toHaveLength(1);
-  // The same heading node throughout, so focus on it is never dropped.
-  expect(shown).toBe(heading);
+  expect(main().getByRole("heading", { name: p.question, level: 1 })).toBe(
+    heading,
+  );
 });
 
 it("leaves out the 'Opens another question' hint under choices", async () => {
@@ -852,6 +872,52 @@ it("shows the just-posted line only when told the question was just posted", asy
   render(<Conversation api={stubApi()} pollId="ads-free" />);
   await main().findByRole("heading", { name: poll().question, level: 1 });
   expect(screen.queryByText(/Your question is live/)).toBeNull();
+});
+
+it("offers one Copy link under the question, and none while the posted line shows it", async () => {
+  const writeText = vi.fn(() => Promise.resolve());
+  Object.defineProperty(navigator, "clipboard", {
+    value: { writeText },
+    configurable: true,
+  });
+  try {
+    const { unmount } = render(
+      <Conversation api={stubApi()} pollId="ads-free" />,
+    );
+    await main().findByRole("heading", { name: poll().question, level: 1 });
+    expect(main().getAllByRole("button", { name: /Copy link/ })).toHaveLength(
+      1,
+    );
+    await userEvent.click(
+      main().getByRole("button", { name: `Copy link to ${poll().question}` }),
+    );
+    expect(writeText).toHaveBeenCalledWith(
+      new URL("/?poll=ads-free", location.href).href,
+    );
+    expect(await main().findByText("Copied")).toBeTruthy();
+    unmount();
+
+    render(
+      <Conversation
+        api={stubApi()}
+        pollId="ads-free"
+        posted={{
+          url: "https://pulse.test/?poll=ads-free",
+          onDismiss: vi.fn(),
+        }}
+      />,
+    );
+    await main().findByRole("heading", { name: poll().question, level: 1 });
+    expect(screen.getAllByRole("button", { name: /Copy link/ })).toHaveLength(
+      1,
+    );
+    expect(screen.getByText(/Your question is live/)).toBeTruthy();
+  } finally {
+    Object.defineProperty(navigator, "clipboard", {
+      value: undefined,
+      configurable: true,
+    });
+  }
 });
 
 it("ends the just-posted line when Next moves to another question", async () => {

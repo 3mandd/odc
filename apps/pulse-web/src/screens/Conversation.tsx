@@ -13,6 +13,7 @@ import { VoteCard } from "../components/VoteCard.js";
 import { ClosedResults } from "../components/ClosedResults.js";
 import { ViewState } from "../components/ViewState.js";
 import { PostedBanner } from "../components/PostedBanner.js";
+import { CopyLink } from "../components/CopyLink.js";
 import { useSession } from "../hooks/use-session.js";
 import type { Session } from "../hooks/use-session.js";
 import { SiteBanner } from "./SiteBanner.js";
@@ -176,6 +177,8 @@ export function Conversation({
           onCounted={counted}
           onBusy={setBusy}
           onGo={go}
+          // The posting banner already offers Copy link; one is enough.
+          shareable={!(posted && at === pollId)}
         />
       </main>
     </div>
@@ -191,6 +194,7 @@ function Question({
   onCounted,
   onBusy,
   onGo,
+  shareable,
 }: {
   api: PulseApi;
   pollId: string;
@@ -201,6 +205,7 @@ function Question({
   onCounted: (answer: Answer) => void;
   onBusy: (busy: boolean) => void;
   onGo: (id: string) => void;
+  shareable: boolean;
 }) {
   const [attempt, setAttempt] = useState(0);
   // Retrying remounts the loader so usePoll's request cleanup discards stale results.
@@ -216,6 +221,7 @@ function Question({
       onCounted={onCounted}
       onBusy={onBusy}
       onGo={onGo}
+      shareable={shareable}
       onRetry={() => setAttempt((one) => one + 1)}
     />
   );
@@ -231,6 +237,7 @@ function LoadedQuestion({
   onCounted,
   onBusy,
   onGo,
+  shareable,
   onRetry,
 }: {
   api: PulseApi;
@@ -242,17 +249,12 @@ function LoadedQuestion({
   onCounted: (answer: Answer) => void;
   onBusy: (busy: boolean) => void;
   onGo: (id: string) => void;
+  /** Whether to offer Copy link under the question. */
+  shareable: boolean;
   onRetry: () => void;
 }) {
   const loaded = usePoll(api, pollId);
   const heading = useRef<HTMLHeadingElement>(null);
-  /*
-   * Whether the vote card is open and showing the question. Then the card
-   * says the question and closing date, and the page heading is kept for
-   * screen readers and focus but not drawn a second time (operator
-   * walkthrough, 2026-10-21; see `.conversation__hero--merged`).
-   */
-  const [cardOpen, setCardOpen] = useState(true);
   useEffect(() => {
     if (loaded.status === "ready") heading.current?.focus();
   }, [loaded.status]);
@@ -260,6 +262,7 @@ function LoadedQuestion({
     standing: ReactNode,
     vote: ReactNode,
     current?: Answer,
+    pollClosed = false,
   ) => {
     // Render the saved answer and its results in the same commit, before the
     // conversation history catches up, so the focused panel never changes rows.
@@ -275,21 +278,28 @@ function LoadedQuestion({
               {(poll) => (
                 // One heading node while the card opens and closes, so focus
                 // on it survives; it is drawn afresh once the poll loads.
-                <section
-                  className={
-                    cardOpen
-                      ? "conversation__hero conversation__hero--merged"
-                      : "conversation__hero"
-                  }
-                >
-                  {cardOpen ? null : <p>{closingNote(poll)}</p>}
+                <section className="conversation__hero">
+                  <p>
+                    {closingNote({ ...poll, open: poll.open && !pollClosed })}
+                  </p>
                   <h1 ref={heading} tabIndex={-1}>
                     {poll.question}
                   </h1>
-                  {!cardOpen && byline(poll.attribution) ? (
+                  {byline(poll.attribution) ? (
                     <p className="conversation__byline">
                       {byline(poll.attribution)}
                     </p>
+                  ) : null}
+                  {shareable ? (
+                    <CopyLink
+                      url={
+                        new URL(
+                          pathOf({ kind: "conversation", pollId: poll.id }),
+                          window.location.href,
+                        ).href
+                      }
+                      question={poll.question}
+                    />
                   ) : null}
                 </section>
               )}
@@ -298,6 +308,9 @@ function LoadedQuestion({
               <button type="button" onClick={onRetry}>
                 Try again
               </button>
+            ) : null}
+            {standing ? (
+              <div className="conversation__standing">{standing}</div>
             ) : null}
             <ol className="conversation__thread" aria-label="Conversation">
               {thread.map((answer) => (
@@ -316,13 +329,9 @@ function LoadedQuestion({
                       .join(" and ")}
                     .
                   </p>
-                  {answer.poll.id === pollId ? standing : null}
                 </li>
               ))}
             </ol>
-            {!thread.some((answer) => answer.poll.id === pollId)
-              ? standing
-              : null}
             {thread.length === 0 && loaded.status === "ready" ? (
               <p className="conversation__empty">
                 Your answers will appear here after you submit.
@@ -350,7 +359,6 @@ function LoadedQuestion({
       onCounted={onCounted}
       onBusy={onBusy}
       onGo={onGo}
-      onCardOpen={setCardOpen}
       renderPage={renderPage}
     />
   ) : (
@@ -366,7 +374,6 @@ function LiveCard({
   onCounted,
   onBusy,
   onGo,
-  onCardOpen,
   renderPage,
 }: {
   api: PulseApi;
@@ -376,12 +383,11 @@ function LiveCard({
   onCounted: (answer: Answer) => void;
   onBusy: (busy: boolean) => void;
   onGo: (id: string) => void;
-  /** Whether the open card is showing the question, for the page heading. */
-  onCardOpen: (open: boolean) => void;
   renderPage: (
     standing: ReactNode,
     vote: ReactNode,
     current?: Answer,
+    pollClosed?: boolean,
   ) => ReactNode;
 }) {
   const { state, cast, reset } = useCastVote(api, poll.id);
@@ -484,10 +490,6 @@ function LiveCard({
   }, [resultView, saved, visible]);
   const next = showing.kind === "answered" ? nextFor(poll, ballot) : null;
   const shut = status.kind === "closed";
-  // The card, open or folded, names the question; closed results do not.
-  const showsQuestion =
-    visible && showing.kind !== "answered" && !(shut && closed.showing);
-  useEffect(() => onCardOpen(showsQuestion), [onCardOpen, showsQuestion]);
   function change() {
     setShowSaved(false);
     fresh.clear();
@@ -533,10 +535,6 @@ function LiveCard({
       <VoteCard
         presentation={showing.kind === "answered" ? "results" : "card"}
         question={poll.question}
-        {...(byline(poll.attribution)
-          ? { byline: byline(poll.attribution) as string }
-          : {})}
-        why={closingNote({ ...poll, open: !shut })}
         method={poll.method}
         choices={poll.choices.map((label, index) => ({ index, label }))}
         picked={picked}
@@ -575,6 +573,7 @@ function LiveCard({
     closed.showing ? (
       <ClosedResults
         data={closed.data}
+        compact
         onRetry={closed.retry}
         onClose={closed.close}
         panelRef={closed.panelRef}
@@ -597,6 +596,7 @@ function LiveCard({
         showing.kind === "answered"
           ? { poll, ballot, results: showing.results }
           : undefined,
+        shut,
       )}
     </div>
   );

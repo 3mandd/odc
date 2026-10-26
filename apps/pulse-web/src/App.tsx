@@ -22,6 +22,7 @@ import { Browse } from "./screens/Browse.js";
 import { MyVotes } from "./screens/MyVotes.js";
 import { NewPoll } from "./screens/NewPoll.js";
 import "./styles/tokens.css";
+import "./styles/utilities.css";
 import "./App.css";
 
 /**
@@ -71,7 +72,7 @@ export function App({
 
   return (
     <>
-      <p className="app__announce" role="status">
+      <p className="visually-hidden" role="status">
         {announced}
       </p>
       {screenFor()}

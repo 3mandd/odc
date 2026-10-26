@@ -350,7 +350,7 @@ function PostForm({
               const inputId = `${id}-choice-${index}`;
               return (
                 <li key={index} className="post__choice">
-                  <label className="post__visually-hidden" htmlFor={inputId}>
+                  <label className="visually-hidden" htmlFor={inputId}>
                     Choice {index + 1}
                   </label>
                   <span className="post__number" aria-hidden="true">
