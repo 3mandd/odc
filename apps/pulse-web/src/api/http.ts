@@ -381,8 +381,13 @@ function isMyVotesPage(body: unknown): body is MyVotesPage {
         row.question.length > 0 &&
         Array.isArray(row.choices) &&
         row.choices.every((c: unknown) => typeof c === "string") &&
+        Array.isArray(row.ballot) &&
+        row.ballot.every((n: unknown) => Number.isInteger(n)) &&
         typeof row.castAt === "string" &&
         Number.isFinite(Date.parse(row.castAt)) &&
+        (row.closesAt === null ||
+          (typeof row.closesAt === "string" &&
+            Number.isFinite(Date.parse(row.closesAt)))) &&
         typeof row.open === "boolean"
       );
     })

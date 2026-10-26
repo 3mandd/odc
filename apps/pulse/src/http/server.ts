@@ -492,13 +492,13 @@ export async function createServer(deps: ServerDeps): Promise<FastifyInstance> {
     // no votes, even if the browser still has a signed-in account session.
     const ballot = heldBallot(request);
     if (!ballot) return reply.send({ votes: [], nextCursor: null });
-    const votes = await deps.votes.listVotes(ballot, query.limit, query.before);
-    const polls = new Map(
-      (
-        await Promise.all(votes.map((vote) => deps.votes.getPoll(vote.pollId)))
-      ).flatMap((poll) => (poll ? [[poll.id, poll] as const] : [])),
+    // One read: each vote arrives with its poll's question and labels.
+    const votes = await deps.votes.voteHistory(
+      ballot,
+      query.limit,
+      query.before,
     );
-    return reply.send(historyPage(votes, polls, query.limit, now()));
+    return reply.send(historyPage(votes, query.limit, now()));
   });
 
   // Reading a poll or its results needs no session: a signed-in story viewer

@@ -57,6 +57,41 @@ describe("reading this browser's vote history", () => {
     expect(calls[0]?.init.credentials).toBe("same-origin");
   });
 
+  it("reads each answer's positions and closing time", async () => {
+    const entry = {
+      pollId: "p1",
+      question: "Keep it free?",
+      choices: ["Yes", "Maybe"],
+      ballot: [0, 2],
+      castAt: "2026-10-20T12:00:00.000Z",
+      closesAt: "2026-11-01T00:00:00.000Z",
+      open: true,
+    };
+    stubFetch({ body: JSON.stringify({ votes: [entry], nextCursor: null }) });
+    expect((await new HttpPulseApi().myVotes()).votes).toEqual([entry]);
+  });
+
+  it("rejects an answer without its positions", async () => {
+    stubFetch({
+      body: JSON.stringify({
+        votes: [
+          {
+            pollId: "p1",
+            question: "Keep it free?",
+            choices: ["Yes"],
+            castAt: "2026-10-20T12:00:00.000Z",
+            closesAt: null,
+            open: true,
+          },
+        ],
+        nextCursor: null,
+      }),
+    });
+    await expect(new HttpPulseApi().myVotes()).rejects.toThrow(
+      "We couldn't read your votes",
+    );
+  });
+
   it("rejects an unreadable private page", async () => {
     stubFetch({
       body: JSON.stringify({

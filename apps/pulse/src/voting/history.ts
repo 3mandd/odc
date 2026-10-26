@@ -1,6 +1,6 @@
 import { z } from "zod";
-import { isOpen, type Poll } from "./poll.js";
-import type { Vote, VoteBefore } from "./store.js";
+import { isOpen } from "./poll.js";
+import type { HistoryVote, VoteBefore } from "./store.js";
 
 const cursorShape = z
   .object({
@@ -46,31 +46,30 @@ export function parseHistoryQuery(
   }
 }
 
-/** The private projection deliberately excludes voter id and confirmation code. */
-export function historyPage(
-  votes: Vote[],
-  polls: Map<string, Poll>,
-  limit: number,
-  now: Date,
-) {
+/**
+ * The private projection, which deliberately excludes voter id and
+ * confirmation code. A row whose poll was deleted mid-read is left out, so a
+ * page may be short, or even empty, and still carry a cursor to the next.
+ */
+export function historyPage(votes: HistoryVote[], limit: number, now: Date) {
   const shown = votes.slice(0, limit);
   const last = shown.at(-1);
   return {
-    votes: shown.flatMap((vote) => {
-      const poll = polls.get(vote.pollId);
-      if (!poll) return [];
-      return [
-        {
-          pollId: poll.id,
-          question: poll.question,
-          choices: vote.choices
-            .map((index) => poll.choices[index])
-            .filter((s): s is string => s !== undefined),
-          castAt: vote.castAt.toISOString(),
-          open: isOpen(poll, now),
-        },
-      ];
-    }),
+    votes: shown.flatMap((vote) =>
+      vote.poll
+        ? [
+            {
+              pollId: vote.pollId,
+              question: vote.poll.question,
+              choices: vote.poll.choices,
+              ballot: vote.ballot,
+              castAt: vote.castAt.toISOString(),
+              closesAt: vote.poll.closesAt?.toISOString() ?? null,
+              open: isOpen(vote.poll, now),
+            },
+          ]
+        : [],
+    ),
     nextCursor:
       votes.length > limit && last
         ? Buffer.from(

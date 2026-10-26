@@ -18,6 +18,7 @@ import {
   type CastOptions,
   type CastResult,
   type Results,
+  type HistoryVote,
   type Vote,
   type VoteBefore,
   type VotingStore,
@@ -281,35 +282,51 @@ export class PostgresVotingStore implements VotingStore {
     };
   }
 
-  async listVotes(
+  async voteHistory(
     voterId: string,
     limit: number,
     before?: VoteBefore,
-  ): Promise<Vote[]> {
+  ): Promise<HistoryVote[]> {
+    // The page is cut in the subquery, in vote_history_idx order, so the scan
+    // stops at limit + 1; only those rows are joined to their polls.
     const { rows } = await this.#pool.query<{
       poll_id: string;
       cast_at: Date;
-      choices: number[];
+      question: string | null;
+      closes_at: Date | null;
+      ballot: number[];
+      labels: string[];
     }>(
-      "select v.poll_id, v.cast_at," +
-        " coalesce(array_agg(c.position order by c.position) filter" +
-        " (where c.position is not null), '{}') as choices" +
-        " from vote v" +
+      "select v.poll_id, v.cast_at, p.question, p.closes_at," +
+        " coalesce(array_agg(c.position order by c.position)" +
+        " filter (where c.position is not null), '{}') as ballot," +
+        " coalesce(array_agg(c.label order by c.position)" +
+        " filter (where c.position is not null), '{}') as labels" +
+        " from (select id, poll_id, cast_at from vote" +
+        " where voter_id = $1" +
+        ' and ($2::timestamptz is null or (cast_at, poll_id collate "C")' +
+        ' < ($2::timestamptz, $3::text collate "C"))' +
+        ' order by cast_at desc, poll_id collate "C" desc limit $4) v' +
+        " left join polls p on p.id = v.poll_id" +
         " left join vote_choice vc on vc.vote_id = v.id" +
         " left join poll_choice c on c.id = vc.choice_id and c.poll_id = v.poll_id" +
-        " where v.voter_id = $1" +
-        ' and ($2::timestamptz is null or (v.cast_at, v.poll_id collate "C")' +
-        ' < ($2::timestamptz, $3::text collate "C"))' +
-        " group by v.id" +
-        ' order by v.cast_at desc, v.poll_id collate "C" desc' +
-        " limit $4",
+        " group by v.id, v.poll_id, v.cast_at, p.question, p.closes_at" +
+        ' order by v.cast_at desc, v.poll_id collate "C" desc',
       [voterId, before?.castAt ?? null, before?.pollId ?? null, limit + 1],
     );
     return rows.map((row) => ({
       pollId: row.poll_id,
-      voterId,
-      choices: row.choices,
       castAt: row.cast_at,
+      ballot: row.ballot,
+      ...(row.question === null
+        ? {}
+        : {
+            poll: {
+              question: row.question,
+              choices: row.labels,
+              ...(row.closes_at ? { closesAt: row.closes_at } : {}),
+            },
+          }),
     }));
   }
 
