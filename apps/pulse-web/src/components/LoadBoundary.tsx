@@ -6,6 +6,9 @@ import { Component, type ReactNode } from "react";
  * download: a dropped connection, or a deploy that renamed the chunk) never
  * takes the whole app down with it. Pair it with `<Suspense>` around lazy
  * components; give it a fallback that still does the job, not an apology.
+ *
+ * It does not retry: once failed, the fallback stays until the boundary
+ * remounts (React.lazy keeps the failed import anyway).
  */
 export class LoadBoundary extends Component<
   { fallback: ReactNode; children: ReactNode },

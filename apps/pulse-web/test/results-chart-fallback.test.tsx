@@ -9,7 +9,10 @@ vi.mock("../src/components/BarChart.js", () => {
   throw new Error("chunk did not load");
 });
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  vi.restoreAllMocks();
+});
 
 it("falls back to the per-answer rows when the chart cannot load", async () => {
   vi.spyOn(console, "error").mockImplementation(() => {});
