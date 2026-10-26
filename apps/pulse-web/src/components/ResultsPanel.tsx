@@ -164,11 +164,9 @@ function Counts({
 
       {vertical ? (
         <p className="results__denominators">
-          Each percentage is a share of {results.voters} total{" "}
-          {results.voters === 1 ? "vote" : "votes"}
           {anyConfirmed
-            ? ` or ${results.confirmedVoters} email-confirmed ${results.confirmedVoters === 1 ? "vote" : "votes"}, respectively.`
-            : "."}
+            ? `Left bar: share of ${allVotes(results.voters)}. Right bar: share of the ${results.confirmedVoters} confirmed by email.`
+            : `Each bar is a share of ${allVotes(results.voters)}.`}
         </p>
       ) : null}
 
@@ -195,7 +193,18 @@ function Counts({
               }
             />
             <span className="results__figure">
-              {choice.count} · {choice.share}%{vertical ? " of all votes" : ""}
+              {vertical ? (
+                <>
+                  <span aria-hidden="true">{choice.share}%</span>
+                  <span className="results__spoken">
+                    {choice.count} · {choice.share}% of all votes
+                  </span>
+                </>
+              ) : (
+                <>
+                  {choice.count} · {choice.share}%
+                </>
+              )}
             </span>
             {anyConfirmed ? (
               <>
@@ -209,8 +218,20 @@ function Counts({
                   }
                 />
                 <span className="results__figure results__figure--confirmed">
-                  {choice.confirmedCount} · {choice.confirmedShare}% confirmed
-                  {vertical ? " by email" : ""}
+                  {vertical ? (
+                    <>
+                      <span aria-hidden="true">{choice.confirmedShare}%</span>
+                      <span className="results__spoken">
+                        {choice.confirmedCount} · {choice.confirmedShare}%
+                        confirmed by email
+                      </span>
+                    </>
+                  ) : (
+                    <>
+                      {choice.confirmedCount} · {choice.confirmedShare}%
+                      confirmed
+                    </>
+                  )}
                 </span>
               </>
             ) : null}
@@ -268,4 +289,9 @@ function howMany(results: Results, ended: boolean): string {
 /** A bar's width as a share of the widest one, never dividing by zero. */
 function scale(share: number, widest: number): number {
   return widest === 0 ? 0 : Math.round((share / widest) * 100);
+}
+
+/** "all 10 votes", or "the 1 vote": "all 1 vote" reads wrong. */
+function allVotes(voters: number): string {
+  return voters === 1 ? "the 1 vote" : `all ${voters} votes`;
 }

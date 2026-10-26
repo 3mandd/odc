@@ -216,28 +216,41 @@
   line-height: 1.45;
   color: var(--ballot-ink-muted);
 }
+/*
+ * Narrow columns, so a phone fits two or three answers to a row and the bars
+ * can be read against each other (#453). Bars on top share one baseline;
+ * labels, which wrap to different lengths, go underneath.
+ */
 .results--compact .results__list {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 150px), 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 5.5rem), 1fr));
   gap: var(--step);
 }
-.results--compact .results__row {
+.results--compact .results__row,
+.results--compact .results__row:has(.results__bar--confirmed) {
   min-inline-size: 0;
-  padding: var(--step);
+  align-content: start;
+  padding: var(--step) calc(var(--step) / 2);
   border: var(--hairline) solid var(--ballot-line);
   border-radius: var(--r-control);
   grid-template-columns: repeat(2, minmax(0, 1fr));
   grid-template-areas:
-    "label label"
     "bar confirmed-bar"
-    "figure confirmed-figure";
+    "figure confirmed-figure"
+    "label label";
   gap: calc(var(--step) / 2);
-  overflow-wrap: anywhere;
+}
+.results--compact .results__row:not(:has(.results__bar--confirmed)) {
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-areas:
+    "bar"
+    "figure"
+    "label";
 }
 .results--compact .results__bar {
   justify-self: center;
   inline-size: calc(var(--step) * 2.5);
-  block-size: calc(var(--step) * 9);
+  block-size: calc(var(--step) * 6);
   border-radius: var(--r-control);
 }
 .results--compact .results__bar::after {
@@ -247,15 +260,21 @@
   border-radius: 0;
 }
 .results--compact .results__label {
-  align-self: start;
-  min-block-size: calc(var(--step) * 4);
-  overflow-wrap: anywhere;
-}
-.results--compact .results__figure {
-  align-self: start;
+  flex-wrap: wrap;
+  justify-content: center;
   text-align: center;
   overflow-wrap: anywhere;
 }
-.results--compact .results__bar--confirmed {
-  block-size: calc(var(--step) * 9);
+.results--compact .results__figure {
+  text-align: center;
+}
+/* Read out in full, drawn as the bare percentage. */
+.results__spoken {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
 }

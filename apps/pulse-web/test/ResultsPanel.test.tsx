@@ -406,8 +406,17 @@ describe("compact question-page results (#453)", () => {
       }),
     });
     expect(
-      screen.getByText(/share of 10 total votes or 4 email-confirmed votes/),
+      screen.getByText(
+        "Left bar: share of all 10 votes. Right bar: share of the 4 confirmed by email.",
+      ),
     ).toBeTruthy();
+    // Drawn as the bare percentage; read out with its count and denominator.
+    const library = screen.getByText("Library").closest("li")!;
+    expect(
+      [...library.querySelectorAll('[aria-hidden="true"]')].map(
+        (one) => one.textContent,
+      ),
+    ).toEqual(["", "70%", "", "25%"]);
     expect(screen.getByText("7 · 70% of all votes")).toBeTruthy();
     expect(screen.getByText("1 · 25% confirmed by email")).toBeTruthy();
     expect(screen.getByText(/more than everybody/)).toBeTruthy();
@@ -421,6 +430,30 @@ describe("compact question-page results (#453)", () => {
     expect(
       bars.every((bar) => bar.getAttribute("aria-hidden") === "true"),
     ).toBe(true);
+  });
+
+  it("names one denominator and draws one bar per answer when nobody confirmed", () => {
+    show({
+      compact: true,
+      results: results({
+        voters: 3,
+        confirmedVoters: 0,
+        choices: [
+          {
+            index: 0,
+            label: "Library",
+            count: 3,
+            share: 100,
+            confirmedCount: 0,
+            confirmedShare: 0,
+          },
+        ],
+      }),
+    });
+    expect(
+      screen.getByText("Each bar is a share of all 3 votes."),
+    ).toBeTruthy();
+    expect(document.querySelectorAll(".results__bar")).toHaveLength(1);
   });
 
   it("keeps an empty closed result readable without drawing bars", () => {
