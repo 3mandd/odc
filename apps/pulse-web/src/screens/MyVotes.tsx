@@ -4,6 +4,7 @@ import { pathOf } from "../flow/route.js";
 import { useSession } from "../hooks/use-session.js";
 import { SiteBanner } from "./SiteBanner.js";
 import "./Browse.css";
+import "./MyVotes.css";
 
 type State =
   | { status: "loading" }
@@ -17,6 +18,15 @@ export function MyVotes({ api }: { api: PulseApi }) {
   const [moreError, setMoreError] = useState("");
   const [attempt, setAttempt] = useState(0);
   const forgotten = useRef(false);
+  const list = useRef<HTMLUListElement>(null);
+  // After Load more, keyboard focus moves to the first new answer, as on Browse.
+  const focusAt = useRef<number | null>(null);
+  useEffect(() => {
+    if (state.status !== "ready" || focusAt.current === null) return;
+    const links = list.current?.querySelectorAll("a");
+    links?.[Math.min(focusAt.current, links.length - 1)]?.focus();
+    focusAt.current = null;
+  }, [state]);
   const { session, progress, signOut, dismiss } = useSession(api, {
     onSignedOut: clear,
     onForgotten: clear,
@@ -56,6 +66,7 @@ export function MyVotes({ api }: { api: PulseApi }) {
         throw new Error("repeated cursor");
       const byId = new Map(page.votes.map((vote) => [vote.pollId, vote]));
       next.votes.forEach((vote) => byId.set(vote.pollId, vote));
+      if (byId.size > page.votes.length) focusAt.current = page.votes.length;
       setState({
         status: "ready",
         page: { votes: [...byId.values()], nextCursor: next.nextCursor },
@@ -104,7 +115,7 @@ export function MyVotes({ api }: { api: PulseApi }) {
             </p>
           ) : (
             <>
-              <ul className="browse__list">
+              <ul ref={list} className="browse__list">
                 {state.page.votes.map((vote) => (
                   <li key={vote.pollId}>
                     <a
@@ -115,8 +126,10 @@ export function MyVotes({ api }: { api: PulseApi }) {
                     >
                       {vote.question}
                     </a>
-                    <span>Your answer: {vote.choices.join(", ")}</span>
-                    <span>
+                    <span className="my-votes__detail">
+                      Your answer: {vote.choices.join(", ")}
+                    </span>
+                    <span className="my-votes__detail">
                       {vote.open
                         ? "Open · You can change your answer"
                         : "Closed · View results"}

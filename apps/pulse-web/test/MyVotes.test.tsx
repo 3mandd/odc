@@ -43,9 +43,10 @@ it("shows server-backed answers and loads another page", async () => {
   expect(await screen.findByText("Your answer: Park")).toBeTruthy();
   expect(myVotes).toHaveBeenCalledWith("next");
   expect(screen.getByText("Closed · View results")).toBeTruthy();
-  expect(
-    screen.getByRole("link", { name: "Where next?" }).getAttribute("href"),
-  ).toBe("/?poll=p2");
+  const added = screen.getByRole("link", { name: "Where next?" });
+  expect(added.getAttribute("href")).toBe("/?poll=p2");
+  // Keyboard focus follows the list to the first answer it added.
+  await waitFor(() => expect(document.activeElement).toBe(added));
 });
 
 it("clears visible answers after forgetting this browser's votes", async () => {
