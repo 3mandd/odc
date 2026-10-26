@@ -97,8 +97,15 @@ import screens**, and nothing in `components/` imports from `api/`.
    Two uses is a component, and the second use is what proves the prop API.
 
 Inspect `src/components/` before adding a shared piece. Existing components
-include `ScreenFrame`, `ViewState`, `VoteCard` and `ResultsPanel`; the historical
-seven-screen mockup deck is not an inventory of implemented components.
+include `ScreenFrame`, `ViewState`, `VoteCard`, `ResultsPanel`, `CopyLink` and
+`BarChart`; the historical seven-screen mockup deck is not an inventory of
+implemented components.
+
+**Charts (ADR-0045):** draw every chart with `BarChart` (or a sibling beside it), the only
+file that imports the charting library (Recharts). It takes plain data, so map
+domain data to it in `flow/` (for example `flow/results-chart.ts`); colours come
+from the `--chart-*` tokens, and it renders a hidden data table for screen
+readers. Read the `dataviz` skill before adding a chart or a series colour.
 
 ## Every view owes four states — no exceptions
 

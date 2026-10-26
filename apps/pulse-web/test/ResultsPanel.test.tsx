@@ -1,11 +1,20 @@
 // @vitest-environment jsdom
-import { cleanup, render, screen, fireEvent } from "@testing-library/react";
+import {
+  cleanup,
+  render,
+  screen,
+  fireEvent,
+  within,
+} from "@testing-library/react";
 import { createRef } from "react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { ResultsPanel } from "../src/components/ResultsPanel.js";
 import { results } from "./stub-api.js";
 
 afterEach(cleanup);
+// ResultsPanel lazy-loads the chart; load its module up front so a cold
+// test run does not outwait findBy's default timeout transforming Recharts.
+beforeAll(() => import("../src/components/BarChart.js"));
 
 const COUNTED = results({
   voters: 10,
@@ -374,5 +383,94 @@ describe("confirmed by email (#353)", () => {
   it("has nothing to explain when nobody has answered", () => {
     show({ results: results({ voters: 0 }), explainHref: "/trust" });
     expect(screen.queryByRole("link")).toBeNull();
+  });
+});
+
+describe("compact question-page results (#453)", () => {
+  it("draws one chart of shares, with both denominators named and read out in full", async () => {
+    show({
+      compact: true,
+      yourChoices: [0],
+      results: results({
+        method: "approval",
+        voters: 10,
+        confirmedVoters: 4,
+        choices: [
+          {
+            index: 0,
+            label: "Library",
+            count: 7,
+            share: 70,
+            confirmedCount: 1,
+            confirmedShare: 25,
+          },
+          {
+            index: 1,
+            label: "A long name that must wrap on a phone",
+            count: 6,
+            share: 60,
+            confirmedCount: 3,
+            confirmedShare: 75,
+          },
+        ],
+      }),
+    });
+    const chart = await screen.findByRole("figure", {
+      name: "How people answered",
+    });
+    // The legend names both denominators; the table says each figure in full.
+    expect(
+      within(chart)
+        .getAllByRole("columnheader")
+        .map((cell) => cell.textContent),
+    ).toEqual([
+      "How people answered",
+      "All votes (10)",
+      "Confirmed by email (4)",
+    ]);
+    expect(chart.querySelector(".bar-chart__legend")?.textContent).toBe(
+      "All votes (10)Confirmed by email (4)",
+    );
+    const library = within(chart).getByRole("rowheader", {
+      name: "Library (yours)",
+    }).parentElement!;
+    expect(
+      [...library.querySelectorAll("td")].map((cell) => cell.textContent),
+    ).toEqual(["7 votes · 70%", "1 confirmed · 25%"]);
+    expect(screen.getByText(/more than everybody/)).toBeTruthy();
+    // No row-per-answer list in the banner: the chart replaces it.
+    expect(document.querySelector(".results__list")).toBeNull();
+  });
+
+  it("draws one series, with no legend, when nobody confirmed", async () => {
+    show({
+      compact: true,
+      results: results({
+        voters: 3,
+        confirmedVoters: 0,
+        choices: [
+          {
+            index: 0,
+            label: "Library",
+            count: 3,
+            share: 100,
+            confirmedCount: 0,
+            confirmedShare: 0,
+          },
+        ],
+      }),
+    });
+    const chart = await screen.findByRole("figure", {
+      name: "How people answered",
+    });
+    expect(within(chart).queryByText(/Confirmed by email/)).toBeNull();
+    expect(within(chart).getAllByRole("columnheader")).toHaveLength(2);
+  });
+
+  it("keeps an empty closed result readable without drawing bars", () => {
+    show({ compact: true, ended: true, results: results({ voters: 0 }) });
+    expect(screen.getByText("Nobody answered this one.")).toBeTruthy();
+    expect(screen.queryByRole("figure")).toBeNull();
+    expect(screen.queryByText("Loading chart…")).toBeNull();
   });
 });

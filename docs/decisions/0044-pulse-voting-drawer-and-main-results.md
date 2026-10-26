@@ -16,15 +16,21 @@ the drawer.
 
 ## Decision
 
-Every question uses a bottom voting drawer on phone and desktop. It opens
+Every question uses a bottom-right voting popout on phone and desktop.
+The operator refined the placement on 2026-10-26: a compact floating button
+replaces the full-width bottom row, and its voting window stays aligned to
+the bottom right. It fits within the viewport and scrolls independently. It opens
 with the choices visible, requires selection followed by explicit Submit,
 and retains sending, retry and change-answer behavior. Closing leaves a Vote
-handle; opening it never submits a ballot. A new question starts expanded
-without carrying another question's unsent selection.
+handle; opening it never submits a ballot. On a closed question the handle
+reads Show question, since there is nothing to vote on. A new question starts
+expanded without carrying another question's unsent selection.
 
 After submission, results and confirmation appear below the saved answer in
 the main content, together with Change my answer and Next where applicable.
 The drawer's handle then reads Change my answer and reopens voting to change it.
+Closing the drawer mid-change shows the saved answer again when the server
+refused the new one, and not after a lost connection, which may have stored it.
 Closed-question results also appear in main content and never enable casting.
 Main content and the drawer scroll independently so each remains reachable.
 Results use compact rows without repeating the saved answer or its privacy

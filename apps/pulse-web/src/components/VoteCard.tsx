@@ -48,7 +48,7 @@ export interface VoteCardProps {
   /** Who posted it: "Posted anonymously" or "Posted by …". Left out for a
    *  question from before posting existed. */
   byline?: string;
-  why: string;
+  why?: string;
   method: PollMethod;
   choices: readonly CardChoice[];
   picked: readonly number[];
@@ -171,10 +171,6 @@ export function VoteCard({
   // "Try again" on fresh results unmounts itself, and so does the panel the
   // failure replaces: when focus was on either, keep it on the results area
   // rather than let it fall to the page. Focus elsewhere is left alone.
-  useEffect(() => {
-    if (presentation === "results") panel.current?.focus();
-  }, [presentation]);
-
   const problem = Boolean(resultsProblem);
   const hadProblem = useRef(problem);
   useEffect(() => {
@@ -260,7 +256,7 @@ export function VoteCard({
           ? "vote-card vote-card--results"
           : "vote-card"
       }
-      aria-label={presentation === "results" ? question : undefined}
+      aria-label={presentation === "results" ? "Your answer" : undefined}
       aria-labelledby={presentation === "card" ? `${id}-question` : undefined}
       onKeyDown={onKeyDown}
       onPointerDown={(event) => {
@@ -290,9 +286,11 @@ export function VoteCard({
             {question}
           </h2>
           {byline ? <p className="vote-card__why">{byline}</p> : null}
-          <p id={`${id}-why`} className="vote-card__why">
-            {why}
-          </p>
+          {why ? (
+            <p id={`${id}-why`} className="vote-card__why">
+              {why}
+            </p>
+          ) : null}
         </>
       ) : null}
       {status.kind === "answered" ? (
@@ -379,7 +377,7 @@ export function VoteCard({
           <fieldset
             className="vote-card__choices"
             aria-labelledby={`${id}-question`}
-            aria-describedby={`${id}-why ${id}-note`}
+            aria-describedby={why ? `${id}-why ${id}-note` : `${id}-note`}
             disabled={!editable}
           >
             {choices.map((choice, row) => (
