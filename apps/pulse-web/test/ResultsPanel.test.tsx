@@ -208,7 +208,7 @@ describe("showing where a question stands", () => {
       ended: true,
     });
     expect(screen.getByText("Nobody answered this one.")).toBeTruthy();
-    expect(screen.queryByRole("figure")).toBeNull();
+    expect(document.querySelector(".results__bar")).toBeNull();
     expect(screen.queryByText(/0 votes/)).toBeNull();
     expect(screen.queryByText(/confirmed/)).toBeNull();
     // Still a way out.
@@ -384,7 +384,7 @@ describe("confirmed by email (#353)", () => {
 });
 
 describe("compact question-page results (#453)", () => {
-  it("draws one chart of shares, with both denominators named and read out in full", () => {
+  it("draws one chart of shares, with both denominators named and read out in full", async () => {
     show({
       compact: true,
       yourChoices: [0],
@@ -412,7 +412,9 @@ describe("compact question-page results (#453)", () => {
         ],
       }),
     });
-    const chart = screen.getByRole("figure", { name: "How people answered" });
+    const chart = await screen.findByRole("figure", {
+      name: "How people answered",
+    });
     // The legend names both denominators; the table says each figure in full.
     expect(
       within(chart)
@@ -437,7 +439,7 @@ describe("compact question-page results (#453)", () => {
     expect(document.querySelector(".results__list")).toBeNull();
   });
 
-  it("draws one series, with no legend, when nobody confirmed", () => {
+  it("draws one series, with no legend, when nobody confirmed", async () => {
     show({
       compact: true,
       results: results({
@@ -455,7 +457,9 @@ describe("compact question-page results (#453)", () => {
         ],
       }),
     });
-    const chart = screen.getByRole("figure", { name: "How people answered" });
+    const chart = await screen.findByRole("figure", {
+      name: "How people answered",
+    });
     expect(within(chart).queryByText(/Confirmed by email/)).toBeNull();
     expect(within(chart).getAllByRole("columnheader")).toHaveLength(2);
   });
@@ -463,6 +467,7 @@ describe("compact question-page results (#453)", () => {
   it("keeps an empty closed result readable without drawing bars", () => {
     show({ compact: true, ended: true, results: results({ voters: 0 }) });
     expect(screen.getByText("Nobody answered this one.")).toBeTruthy();
-    expect(document.querySelector(".results__bar")).toBeNull();
+    expect(screen.queryByRole("figure")).toBeNull();
+    expect(screen.queryByText("Loading chart…")).toBeNull();
   });
 });

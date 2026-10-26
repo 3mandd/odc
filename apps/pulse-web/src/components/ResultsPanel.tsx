@@ -1,8 +1,15 @@
-import { Fragment } from "react";
+import { Fragment, Suspense, lazy } from "react";
 import type { CSSProperties, RefObject } from "react";
 import type { ChoiceResult, Results } from "../api/types.js";
 import { percent, resultsChart } from "../flow/results-chart.js";
-import { BarChart } from "./BarChart.js";
+
+/*
+ * The chart library is most of BarChart's weight, and results only show after
+ * a vote or on a closed question, so it loads on first use, not with the app.
+ */
+const BarChart = lazy(() =>
+  import("./BarChart.js").then((module) => ({ default: module.BarChart })),
+);
 import "./ResultsPanel.css";
 
 /**
@@ -117,15 +124,19 @@ export function ResultsPanel({
       {results.voters > 0 && compact ? (
         <>
           {/* The question page's banner (#453): one chart, not a row per answer. */}
-          <BarChart
-            {...resultsChart(results, yourChoices)}
-            formatValue={percent}
-          />
+          <Suspense
+            fallback={<p className="results__chart-loading">Loading chart…</p>}
+          >
+            <BarChart
+              {...resultsChart(results, yourChoices)}
+              formatValue={percent}
+            />
+          </Suspense>
           <ApprovalNote results={results} />
         </>
       ) : null}
       {results.voters > 0 && !compact ? (
-        <Counts results={results} yours={yours} summary />
+        <Counts results={results} yours={yours} />
       ) : null}
     </div>
   );
@@ -135,11 +146,9 @@ export function ResultsPanel({
 function Counts({
   results,
   yours,
-  summary,
 }: {
   results: Results;
   yours: readonly ChoiceResult[];
-  summary: boolean;
 }) {
   const isYours = (choice: ChoiceResult) =>
     yours.some((one) => one.index === choice.index);
@@ -165,7 +174,7 @@ function Counts({
 
   return (
     <>
-      {summary && yours.length > 0 ? (
+      {yours.length > 0 ? (
         <p className="results__yours">
           You picked <Labels choices={yours} />.
         </p>

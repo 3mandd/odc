@@ -210,3 +210,10 @@
 .results--compact .results__count {
   font-size: var(--t-small);
 }
+/* Holds the chart's place while its code loads, so the page does not jump. */
+.results__chart-loading {
+  min-height: calc(var(--step) * 30);
+  margin: 0;
+  font-size: var(--t-small);
+  color: var(--ballot-ink-muted);
+}

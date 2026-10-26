@@ -113,7 +113,10 @@ it("approval cast, replacement, network retry and closed results work over the r
     await screen.findByText("Counted");
     expect(await api.myBallot("approval")).toEqual([0, 2]);
     card = within(screen.getByRole("region"));
-    expect(card.getAllByText("yours")).toHaveLength(2);
+    // Both picks are named in the results chart's table (#453).
+    expect(
+      await card.findAllByRole("rowheader", { name: /\(yours\)/ }),
+    ).toHaveLength(2);
     expect(
       within(screen.getByRole("complementary", { name: "Voting" })).queryByRole(
         "group",

@@ -1,3 +1,4 @@
+import { useId } from "react";
 import {
   Bar,
   CartesianGrid,
@@ -8,22 +9,30 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { useId } from "react";
+import {
+  BAR_RADIUS,
+  MAX_BAR,
+  MAX_LINES,
+  TOP_ROOM,
+  VALUE_AXIS,
+  chartLayout,
+} from "../flow/bar-chart-layout.js";
 import { useElementWidth } from "../hooks/use-element-width.js";
 import "./BarChart.css";
 
 /**
  * A bar chart on a white card: the one place the app draws a chart, and the
- * one file that imports the charting library (Recharts). It knows nothing
- * about polls; callers map their data to `BarChartDatum`s (see
- * `flow/results-chart.ts`).
+ * one file that imports the charting library (Recharts, ADR-0045). It knows
+ * nothing about polls; callers map their data to `BarChartDatum`s (see
+ * `flow/results-chart.ts`). Sizing rules live in `flow/bar-chart-layout.ts`.
  *
- * Columns when there are at most `COLUMN_LIMIT` categories and every word of
- * every label fits its column at the current width; otherwise horizontal bars,
- * whose labels get a wide column of their own. So a long list, or long words
- * on a phone, still read. Colours come from the
- * `--chart-*` tokens. The drawing is hidden from assistive technology and a
- * visually hidden table carries the same figures, with each `text` in full.
+ * Load it lazily (`React.lazy`) where it is not needed on first paint:
+ * Recharts is most of its weight.
+ *
+ * Identity never rests on colour alone: the second series is striped as well
+ * as coloured, a legend names both, and a highlighted datum's label says why it
+ * is bold. The drawing is hidden from assistive technology; a visually hidden
+ * table carries the same figures, each `text` in full.
  */
 export interface BarChartSeries {
   /** Key into each datum's `values`. */
@@ -35,7 +44,7 @@ export interface BarChartSeries {
 export interface BarChartDatum {
   id: string;
   label: string;
-  /** Drawn in bold, and named with `highlightNote` in tooltip and table. */
+  /** Drawn in bold, with `highlightNote` after its label. */
   highlighted?: boolean;
   /** Per series: the plotted number, and its full wording for tooltip and table. */
   values: Readonly<Record<string, { value: number; text: string }>>;
@@ -55,9 +64,6 @@ export interface BarChartProps {
   highlightNote?: string;
 }
 
-/** More categories than this are drawn as horizontal bars. */
-export const COLUMN_LIMIT = 6;
-
 export function BarChart({
   caption,
   series,
@@ -68,24 +74,44 @@ export function BarChart({
 }: BarChartProps) {
   const { ref, width } = useElementWidth<HTMLDivElement>(320);
   const captionId = useId();
-  const columns = fitsColumns(width, data);
-  const rows = data.map((datum) => ({
-    label: datum.label,
-    highlighted: datum.highlighted === true,
-    ...Object.fromEntries(
-      series.map((one) => [one.key, datum.values[one.key]?.value ?? 0]),
-    ),
-  }));
-  const size = columns
-    ? columnLayout(width, data)
-    : rowLayout(width, data, series.length);
-  const ticks = [0, max / 4, max / 2, (max * 3) / 4, max];
-  const isHighlighted = (index: number) => data[index]?.highlighted === true;
-  // The axis has room for the label only; tooltip and table say why it is bold.
+  const stripeId = useId();
   const fullLabel = (datum: BarChartDatum) =>
     datum.highlighted && highlightNote
       ? `${datum.label} (${highlightNote})`
       : datum.label;
+  const layout = chartLayout({
+    width,
+    labels: data.map(fullLabel),
+    valueLabels: data.flatMap((datum) =>
+      series.map((one) => formatValue(datum.values[one.key]?.value ?? 0)),
+    ),
+    seriesCount: series.length,
+  });
+  const columns = layout.orientation === "columns";
+  const rows = data.map((datum) => ({
+    id: datum.id,
+    label: fullLabel(datum),
+    ...Object.fromEntries(
+      series.map((one) => [one.key, datum.values[one.key]?.value ?? 0]),
+    ),
+  }));
+  const ticks = [0, max / 4, max / 2, (max * 3) / 4, max];
+  const isHighlighted = (index: number) => data[index]?.highlighted === true;
+  const tick = (props: TickProps) => (
+    <WrappedTick
+      {...props}
+      width={columns ? layout.band : layout.axis - 8}
+      anchor={columns ? "middle" : "end"}
+      bold={isHighlighted(props.index ?? props.payload.index)}
+    />
+  );
+  const valueAxis = {
+    domain: [0, max],
+    ticks,
+    tickFormatter: formatValue,
+    axisLine: false,
+    tickLine: false,
+  } as const;
 
   return (
     <figure className="bar-chart" aria-labelledby={captionId}>
@@ -96,9 +122,7 @@ export function BarChart({
         <ul className="bar-chart__legend" aria-hidden="true">
           {series.map((one, at) => (
             <li key={one.key}>
-              <span
-                className={`bar-chart__swatch bar-chart__swatch--${at + 1}`}
-              />
+              <Swatch slot={at + 1} />
               {one.label}
             </li>
           ))}
@@ -107,13 +131,26 @@ export function BarChart({
       <div ref={ref} className="bar-chart__plot" aria-hidden="true">
         <RechartsBarChart
           width={width}
-          height={size.height}
+          height={layout.height}
           data={rows}
           layout={columns ? "horizontal" : "vertical"}
-          margin={{ top: 20, right: columns ? 4 : 40, bottom: 0, left: 0 }}
+          margin={{ top: TOP_ROOM, right: layout.right, bottom: 0, left: 0 }}
           barGap={2}
           accessibilityLayer={false}
         >
+          <defs>
+            {/* The second series' stripes, so it differs by more than hue. */}
+            <pattern
+              id={stripeId}
+              width="6"
+              height="6"
+              patternUnits="userSpaceOnUse"
+              patternTransform="rotate(45)"
+            >
+              <rect className="bar-chart__stripe-ground" width="6" height="6" />
+              <line className="bar-chart__stripe" x1="0" y1="0" x2="0" y2="6" />
+            </pattern>
+          </defs>
           <CartesianGrid
             className="bar-chart__grid"
             vertical={!columns}
@@ -124,65 +161,40 @@ export function BarChart({
               <XAxis
                 dataKey="label"
                 interval={0}
-                height={size.axis}
+                height={layout.axis}
                 tickLine={false}
-                tick={(props: TickProps) => (
-                  <WrappedTick
-                    {...props}
-                    width={size.band}
-                    anchor="middle"
-                    bold={isHighlighted(props.index ?? props.payload.index)}
-                  />
-                )}
+                tick={tick}
               />
-              <YAxis
-                domain={[0, max]}
-                ticks={ticks}
-                tickFormatter={formatValue}
-                axisLine={false}
-                tickLine={false}
-                width={40}
-              />
+              <YAxis {...valueAxis} width={VALUE_AXIS} />
             </>
           ) : (
             <>
-              <XAxis
-                type="number"
-                domain={[0, max]}
-                ticks={ticks}
-                tickFormatter={formatValue}
-                axisLine={false}
-                tickLine={false}
-              />
+              <XAxis type="number" {...valueAxis} />
               <YAxis
                 type="category"
                 dataKey="label"
                 interval={0}
-                width={size.axis}
+                width={layout.axis}
                 tickLine={false}
-                tick={(props: TickProps) => (
-                  <WrappedTick
-                    {...props}
-                    width={size.axis - 8}
-                    anchor="end"
-                    bold={isHighlighted(props.index ?? props.payload.index)}
-                  />
-                )}
+                tick={tick}
               />
             </>
           )}
           <Tooltip
             cursor={{ className: "bar-chart__cursor" }}
             isAnimationActive={false}
-            content={({ active, label }) =>
-              active ? (
+            content={({ active, payload }) => {
+              const id = (payload?.[0]?.payload as { id?: string } | undefined)
+                ?.id;
+              const datum = data.find((one) => one.id === id);
+              return active && datum ? (
                 <ChartTooltip
-                  datum={data.find((one) => one.label === label)}
+                  label={fullLabel(datum)}
+                  datum={datum}
                   series={series}
-                  fullLabel={fullLabel}
                 />
-              ) : null
-            }
+              ) : null;
+            }}
           />
           {series.map((one, at) => (
             <Bar
@@ -190,8 +202,13 @@ export function BarChart({
               dataKey={one.key}
               name={one.label}
               className={`bar-chart__series bar-chart__series--${at + 1}`}
-              maxBarSize={24}
-              radius={columns ? [4, 4, 0, 0] : [0, 4, 4, 0]}
+              {...(at === 1 ? { fill: `url(#${stripeId})` } : {})}
+              maxBarSize={MAX_BAR}
+              radius={
+                columns
+                  ? [BAR_RADIUS, BAR_RADIUS, 0, 0]
+                  : [0, BAR_RADIUS, BAR_RADIUS, 0]
+              }
               isAnimationActive={false}
             >
               <LabelList
@@ -206,7 +223,7 @@ export function BarChart({
           ))}
         </RechartsBarChart>
       </div>
-      <table className="bar-chart__table">
+      <table className="visually-hidden">
         <thead>
           <tr>
             <th scope="col">{caption}</th>
@@ -269,83 +286,28 @@ function WrappedTick({
   );
 }
 
+function Swatch({ slot }: { slot: number }) {
+  return <span className={`bar-chart__swatch bar-chart__swatch--${slot}`} />;
+}
+
 function ChartTooltip({
+  label,
   datum,
   series,
-  fullLabel,
 }: {
-  datum: BarChartDatum | undefined;
+  label: string;
+  datum: BarChartDatum;
   series: readonly BarChartSeries[];
-  fullLabel: (datum: BarChartDatum) => string;
 }) {
-  if (!datum) return null;
   return (
     <div className="bar-chart__tooltip">
-      <p className="bar-chart__tooltip-label">{fullLabel(datum)}</p>
+      <p className="bar-chart__tooltip-label">{label}</p>
       {series.map((one, at) => (
         <p key={one.key}>
-          <span className={`bar-chart__swatch bar-chart__swatch--${at + 1}`} />
+          <Swatch slot={at + 1} />
           {one.label}: {datum.values[one.key]?.text ?? ""}
         </p>
       ))}
     </div>
-  );
-}
-
-/**
- * Line height of a wrapped axis label, the average width of one of its
- * characters (bold, so a little wide), and the most lines it may take before
- * an ellipsis; the tooltip and table always give it in full.
- */
-const LINE = 16;
-const CHAR = 7.5;
-const MAX_LINES = 3;
-
-/** Width of each column: the plot less the value axis, shared out. */
-function bandWidth(width: number, count: number) {
-  return (width - 44) / Math.max(1, count) - 4;
-}
-
-/** Whether labels can sit under columns without cutting a word. */
-function fitsColumns(width: number, data: readonly BarChartDatum[]) {
-  if (data.length > COLUMN_LIMIT) return false;
-  const band = bandWidth(width, data.length);
-  const longest = Math.max(
-    0,
-    ...data.flatMap((one) => one.label.split(/\s+/).map((word) => word.length)),
-  );
-  return longest * CHAR <= band;
-}
-
-/** Columns: plot height, room under it for labels, and each column's width. */
-function columnLayout(width: number, data: readonly BarChartDatum[]) {
-  const band = Math.max(40, bandWidth(width, data.length));
-  const lines = labelLines(band, data);
-  const axis = lines * LINE + 8;
-  return { band, axis, height: 180 + axis };
-}
-
-/**
- * Rows: a label column, and a row tall enough for its longest label's lines
- * (rows share one height) or its bars, whichever is taller.
- */
-function rowLayout(
-  width: number,
-  data: readonly BarChartDatum[],
-  seriesCount: number,
-) {
-  const axis = Math.min(200, Math.floor(width * 0.45));
-  const lines = labelLines(axis - 8, data);
-  const row = Math.max(seriesCount * 14 + 12, lines * LINE + 10);
-  // Rows have no column band; the label column is `axis` wide.
-  return { band: 0, axis, height: data.length * row + 40 };
-}
-
-/** How many lines the longest label takes at `width`, up to `MAX_LINES`. */
-function labelLines(width: number, data: readonly BarChartDatum[]) {
-  const perLine = Math.max(4, Math.floor(width / CHAR));
-  return Math.min(
-    MAX_LINES,
-    Math.max(1, ...data.map((one) => Math.ceil(one.label.length / perLine))),
   );
 }

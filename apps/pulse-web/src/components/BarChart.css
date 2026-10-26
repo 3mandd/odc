@@ -43,7 +43,11 @@
   background: var(--chart-series-1);
 }
 .bar-chart__swatch--2 {
-  background: var(--chart-series-2);
+  background: repeating-linear-gradient(
+    45deg,
+    var(--chart-series-2) 0 calc(var(--step) / 2),
+    var(--chart-texture) calc(var(--step) / 2) calc(var(--step) * 0.75)
+  );
 }
 .bar-chart__plot {
   width: 100%;
@@ -52,8 +56,13 @@
 .bar-chart__series--1 .recharts-rectangle {
   fill: var(--chart-series-1);
 }
-.bar-chart__series--2 .recharts-rectangle {
+/* Series 2 fills with the stripe pattern (BarChart's <defs>). */
+.bar-chart__stripe-ground {
   fill: var(--chart-series-2);
+}
+.bar-chart__stripe {
+  stroke: var(--chart-texture);
+  stroke-width: calc(var(--hairline) * 2);
 }
 .bar-chart__grid line {
   stroke: var(--chart-grid);
@@ -91,14 +100,4 @@
 .bar-chart__tooltip-label {
   font-weight: 700;
   margin-bottom: calc(var(--step) / 2);
-}
-/* Read out, never drawn: the same figures as the chart, in full. */
-.bar-chart__table {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  margin: 0;
-  overflow: hidden;
-  clip-path: inset(50%);
-  white-space: nowrap;
 }

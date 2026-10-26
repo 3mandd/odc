@@ -181,4 +181,6 @@
   --chart-cursor: rgba(11, 11, 11, 0.05);
   --chart-series-1: #2a78d6;
   --chart-series-2: #eb6834;
+  /* Light stripes over the second series, so it differs by more than hue. */
+  --chart-texture: rgba(255, 255, 255, 0.55);
 }

@@ -1,11 +1,8 @@
 // @vitest-environment jsdom
 import { cleanup, render, screen, within } from "@testing-library/react";
 import { afterEach, expect, it } from "vitest";
-import {
-  BarChart,
-  COLUMN_LIMIT,
-  type BarChartDatum,
-} from "../src/components/BarChart.js";
+import { BarChart, type BarChartDatum } from "../src/components/BarChart.js";
+import { COLUMN_LIMIT } from "../src/flow/bar-chart-layout.js";
 
 afterEach(cleanup);
 
@@ -103,8 +100,20 @@ it("draws columns when labels fit, and horizontal bars past the limit or for lon
 it("draws a highlighted label in bold and names why in the table", () => {
   draw(3);
   const bold = document.querySelectorAll(".bar-chart__tick--bold");
-  expect([...bold].map((one) => one.textContent)).toEqual(["Answer 1"]);
+  // The axis label says why it is bold, so weight never carries it alone.
+  expect([...bold].map((one) => one.textContent)).toEqual(["Answer 1 (yours)"]);
   expect(
     screen.getByRole("rowheader", { name: "Answer 1 (yours)" }),
   ).toBeTruthy();
+});
+
+it("stripes the second series as well as colouring it", () => {
+  draw(2, 2);
+  const pattern = document.querySelector("pattern");
+  expect(pattern?.id).toBeTruthy();
+  const second = document.querySelector(
+    ".bar-chart__series--2 .recharts-rectangle",
+  );
+  expect(second?.getAttribute("fill")).toBe(`url(#${pattern?.id})`);
+  expect(document.querySelector(".bar-chart__swatch--2")).not.toBeNull();
 });

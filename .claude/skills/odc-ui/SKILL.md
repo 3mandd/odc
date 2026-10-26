@@ -101,7 +101,7 @@ include `ScreenFrame`, `ViewState`, `VoteCard`, `ResultsPanel`, `CopyLink` and
 `BarChart`; the historical seven-screen mockup deck is not an inventory of
 implemented components.
 
-**Charts:** draw every chart with `BarChart` (or a sibling beside it), the only
+**Charts (ADR-0045):** draw every chart with `BarChart` (or a sibling beside it), the only
 file that imports the charting library (Recharts). It takes plain data, so map
 domain data to it in `flow/` (for example `flow/results-chart.ts`); colours come
 from the `--chart-*` tokens, and it renders a hidden data table for screen
