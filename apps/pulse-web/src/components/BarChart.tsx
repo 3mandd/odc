@@ -10,9 +10,11 @@ import {
   YAxis,
 } from "recharts";
 import {
+  BAR_GAP,
   BAR_RADIUS,
   MAX_BAR,
   MAX_LINES,
+  ROW_LABEL_GAP,
   TOP_ROOM,
   VALUE_AXIS,
   chartLayout,
@@ -100,7 +102,7 @@ export function BarChart({
   const tick = (props: TickProps) => (
     <WrappedTick
       {...props}
-      width={columns ? layout.band : layout.axis - 8}
+      width={columns ? layout.band : layout.axis - ROW_LABEL_GAP}
       anchor={columns ? "middle" : "end"}
       bold={isHighlighted(props.index ?? props.payload.index)}
     />
@@ -135,7 +137,7 @@ export function BarChart({
           data={rows}
           layout={columns ? "horizontal" : "vertical"}
           margin={{ top: TOP_ROOM, right: layout.right, bottom: 0, left: 0 }}
-          barGap={2}
+          barGap={BAR_GAP}
           accessibilityLayer={false}
         >
           <defs>
@@ -148,7 +150,8 @@ export function BarChart({
               patternTransform="rotate(45)"
             >
               <rect className="bar-chart__stripe-ground" width="6" height="6" />
-              <line className="bar-chart__stripe" x1="0" y1="0" x2="0" y2="6" />
+              {/* Centred in the tile, so the stripe is not half-clipped. */}
+              <line className="bar-chart__stripe" x1="3" y1="0" x2="3" y2="6" />
             </pattern>
           </defs>
           <CartesianGrid

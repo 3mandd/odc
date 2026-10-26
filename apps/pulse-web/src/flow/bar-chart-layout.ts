@@ -21,8 +21,26 @@ export const TOP_ROOM = 20;
 /** Widest a bar may draw, and its rounded end. */
 export const MAX_BAR = 24;
 export const BAR_RADIUS = 4;
+/** Space between a category's bars (Recharts `barGap`). */
+export const BAR_GAP = 2;
 /** Recharts' default space between categories, as a share of each band. */
 const CATEGORY_GAP = 0.1;
+/** Room right of the columns' plot. */
+const COLUMN_RIGHT = 4;
+/** Padding kept between a wrapped label and its column's edges. */
+const LABEL_INSET = 4;
+/** Rows: label column as a share of the width, its cap, and its gap to the bars. */
+const ROW_LABEL_SHARE = 0.45;
+const ROW_LABEL_MAX = 200;
+export const ROW_LABEL_GAP = 8;
+/** Rows: height per bar in a row, padding round a row's bars or its label. */
+const ROW_PER_BAR = 14;
+const ROW_BAR_PAD = 12;
+const ROW_LABEL_PAD = 10;
+/** Rows: room for the value axis under the bars. */
+const ROW_AXIS = 40;
+/** Space between a value label and the end of its bar or the edge. */
+const VALUE_PAD = 8;
 
 export type ChartLayout =
   | {
@@ -64,33 +82,48 @@ export function chartLayout({
   const count = Math.max(1, labels.length);
   const valueWidth =
     Math.max(0, ...valueLabels.map((one) => one.length)) * CHAR;
-  const band = (width - VALUE_AXIS - 4) / count;
-  const pitch = (band * (1 - CATEGORY_GAP * 2)) / Math.max(1, seriesCount);
+  const band = (width - VALUE_AXIS - COLUMN_RIGHT) / count;
   const columns =
     labels.length <= COLUMN_LIMIT &&
-    longestWord(labels) * CHAR <= band - 4 &&
-    valueWidth <= pitch;
+    longestWord(labels) * CHAR <= band - LABEL_INSET &&
+    valueWidth + VALUE_PAD <= valueSpacing(band, seriesCount);
 
   if (columns) {
-    const lines = mostLines(labels, band - 4);
-    const axis = lines * LINE + 8;
+    const lines = mostLines(labels, band - LABEL_INSET);
+    const axis = lines * LINE + VALUE_PAD;
     return {
       orientation: "columns",
-      band: band - 4,
+      band: band - LABEL_INSET,
       axis,
       height: PLOT_HEIGHT + axis,
-      right: 4,
+      right: COLUMN_RIGHT,
     };
   }
-  const axis = Math.min(200, Math.floor(width * 0.45));
-  const lines = mostLines(labels, axis - 8);
-  const row = Math.max(seriesCount * 14 + 12, lines * LINE + 10);
+  const axis = Math.min(ROW_LABEL_MAX, Math.floor(width * ROW_LABEL_SHARE));
+  const lines = mostLines(labels, axis - ROW_LABEL_GAP);
+  const row = Math.max(
+    seriesCount * ROW_PER_BAR + ROW_BAR_PAD,
+    lines * LINE + ROW_LABEL_PAD,
+  );
   return {
     orientation: "rows",
     axis,
-    height: count * row + 40,
-    right: Math.ceil(valueWidth) + 8,
+    height: count * row + ROW_AXIS,
+    right: Math.ceil(valueWidth) + VALUE_PAD,
   };
+}
+
+/**
+ * Distance between the centres of neighbouring value labels above columns, as
+ * Recharts places the bars: one series sits one per band; several sit side by
+ * side within a band, each `barWidth` wide and `BAR_GAP` apart, where
+ * `barWidth` is the band's share less the gaps, capped at `MAX_BAR`.
+ */
+export function valueSpacing(band: number, seriesCount: number): number {
+  if (seriesCount <= 1) return band;
+  const inner = band * (1 - CATEGORY_GAP * 2) - BAR_GAP * (seriesCount - 1);
+  const barWidth = Math.min(inner / seriesCount, MAX_BAR);
+  return barWidth + BAR_GAP;
 }
 
 /**

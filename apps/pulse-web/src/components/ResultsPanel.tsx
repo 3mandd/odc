@@ -2,6 +2,8 @@ import { Fragment, Suspense, lazy } from "react";
 import type { CSSProperties, RefObject } from "react";
 import type { ChoiceResult, Results } from "../api/types.js";
 import { percent, resultsChart } from "../flow/results-chart.js";
+import { LoadBoundary } from "./LoadBoundary.js";
+import "./ResultsPanel.css";
 
 /*
  * The chart library is most of BarChart's weight, and results only show after
@@ -10,7 +12,6 @@ import { percent, resultsChart } from "../flow/results-chart.js";
 const BarChart = lazy(() =>
   import("./BarChart.js").then((module) => ({ default: module.BarChart })),
 );
-import "./ResultsPanel.css";
 
 /**
  * Where the question stands.
@@ -124,14 +125,19 @@ export function ResultsPanel({
       {results.voters > 0 && compact ? (
         <>
           {/* The question page's banner (#453): one chart, not a row per answer. */}
-          <Suspense
-            fallback={<p className="results__chart-loading">Loading chart…</p>}
-          >
-            <BarChart
-              {...resultsChart(results, yourChoices)}
-              formatValue={percent}
-            />
-          </Suspense>
+          {/* If the chart's code cannot load, the rows still give every figure. */}
+          <LoadBoundary fallback={<Counts results={results} yours={yours} />}>
+            <Suspense
+              fallback={
+                <p className="results__chart-loading">Loading chart…</p>
+              }
+            >
+              <BarChart
+                {...resultsChart(results, yourChoices)}
+                formatValue={percent}
+              />
+            </Suspense>
+          </LoadBoundary>
           <ApprovalNote results={results} />
         </>
       ) : null}

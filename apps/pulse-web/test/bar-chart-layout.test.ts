@@ -1,8 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
+  BAR_GAP,
   COLUMN_LIMIT,
+  MAX_BAR,
   MAX_LINES,
   chartLayout,
+  valueSpacing,
   wrapLines,
 } from "../src/flow/bar-chart-layout.js";
 
@@ -35,17 +38,28 @@ describe("choosing columns or rows", () => {
     }
   });
 
-  it("turns to rows when two series' value labels would touch on a phone", () => {
-    const twoSeries = (width: number) =>
+  it("turns to rows when two series' value labels would touch, at any width", () => {
+    // Recharts caps paired bars at MAX_BAR and sets them BAR_GAP apart, so
+    // their labels' centres stay 26px apart however wide the column is.
+    const twoSeries = (width: number, valueLabels: string[]) =>
       chartLayout({
         width,
-        labels: shortLabels(COLUMN_LIMIT),
-        valueLabels: ["100%", "42.9%"],
+        labels: ["Yes", "No", "Maybe"],
+        valueLabels,
         seriesCount: 2,
       }).orientation;
-    expect(twoSeries(280)).toBe("rows");
-    expect(twoSeries(375)).toBe("rows");
-    expect(twoSeries(700)).toBe("columns");
+    for (const width of [280, 375, 700, 1200]) {
+      expect(twoSeries(width, ["42.9%", "100%"])).toBe("rows");
+    }
+    // Labels narrow enough for the gap still get columns.
+    expect(twoSeries(700, ["5%", "9%"])).toBe("columns");
+  });
+
+  it("spaces paired value labels as Recharts places the bars", () => {
+    expect(valueSpacing(110, 1)).toBe(110);
+    expect(valueSpacing(110, 2)).toBe(MAX_BAR + BAR_GAP);
+    // A narrow band: the bars share it, less the category and bar gaps.
+    expect(valueSpacing(40, 2)).toBeCloseTo((40 * 0.8 - BAR_GAP) / 2 + BAR_GAP);
   });
 
   it("turns to rows past the column limit or for a word wider than its column", () => {
