@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { cleanup, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { afterEach, expect, it } from "vitest";
+import { afterEach, beforeAll, expect, it } from "vitest";
 import { createServer } from "../../../apps/pulse/src/http/server.js";
 import { SessionSigner } from "../../../apps/pulse/src/http/session.js";
 import { ClaimService } from "../../../apps/pulse/src/identity/claim.js";
@@ -18,6 +18,10 @@ import { InMemoryVotingStore } from "../../../apps/pulse/src/voting/store.js";
 import { InMemorySuggestionStore } from "../../../apps/pulse/src/voting/suggestions.js";
 import { HttpPulseApi } from "../../../apps/pulse-web/src/api/http.js";
 import { App } from "../../../apps/pulse-web/src/App.js";
+
+// ResultsPanel lazy-loads the chart; load its module up front so a cold
+// test run does not outwait findBy's default timeout transforming Recharts.
+beforeAll(() => import("../../../apps/pulse-web/src/components/BarChart.js"));
 
 afterEach(() => {
   cleanup();

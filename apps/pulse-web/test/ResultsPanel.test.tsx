@@ -7,11 +7,14 @@ import {
   within,
 } from "@testing-library/react";
 import { createRef } from "react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { ResultsPanel } from "../src/components/ResultsPanel.js";
 import { results } from "./stub-api.js";
 
 afterEach(cleanup);
+// ResultsPanel lazy-loads the chart; load its module up front so a cold
+// test run does not outwait findBy's default timeout transforming Recharts.
+beforeAll(() => import("../src/components/BarChart.js"));
 
 const COUNTED = results({
   voters: 10,

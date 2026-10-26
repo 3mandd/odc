@@ -7,7 +7,7 @@ import {
   within,
 } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { afterEach, expect, it, vi } from "vitest";
+import { afterEach, beforeAll, expect, it, vi } from "vitest";
 import { ApiError } from "../src/api/types.js";
 import type { Ballot, CastOutcome, Poll } from "../src/api/types.js";
 import { closingNote } from "../src/flow/conversation.js";
@@ -15,6 +15,10 @@ import { Conversation } from "../src/screens/Conversation.js";
 import { graph, poll, results, stubApi } from "./stub-api.js";
 
 afterEach(cleanup);
+// ResultsPanel lazy-loads the chart; load its module up front so a cold
+// test run does not outwait findBy's default timeout transforming Recharts.
+beforeAll(() => import("../src/components/BarChart.js"));
+
 const main = () => within(screen.getByRole("main"));
 function tally(p: Poll, ballot: Ballot) {
   return results({
