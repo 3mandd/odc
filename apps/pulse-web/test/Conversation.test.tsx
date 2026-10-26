@@ -211,8 +211,9 @@ it("keeps the saved answer and its results when backing out of a change", async 
     name: "Change my answer",
   });
   expect(document.activeElement).toBe(handle);
-  const row = main().getByText("You picked Yes.").closest("li")!;
-  const standing = within(row).getByRole("group", {
+  expect(main().getByText("You picked Yes.")).toBeTruthy();
+  // One results banner above the thread (#453), still showing the saved answer.
+  const standing = main().getByRole("group", {
     name: "How people answered",
   });
   expect(
