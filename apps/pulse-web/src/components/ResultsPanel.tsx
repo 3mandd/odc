@@ -1,6 +1,8 @@
 import { Fragment } from "react";
 import type { CSSProperties, RefObject } from "react";
 import type { ChoiceResult, Results } from "../api/types.js";
+import { percent, resultsChart } from "../flow/results-chart.js";
+import { BarChart } from "./BarChart.js";
 import "./ResultsPanel.css";
 
 /**
@@ -112,13 +114,18 @@ export function ResultsPanel({
         Nobody answered: the sentence above says so, and a list of empty bars
         under it would only say it again, worse. The way out stays.
       */}
-      {results.voters > 0 ? (
-        <Counts
-          results={results}
-          yours={yours}
-          summary={!compact}
-          vertical={compact}
-        />
+      {results.voters > 0 && compact ? (
+        <>
+          {/* The question page's banner (#453): one chart, not a row per answer. */}
+          <BarChart
+            {...resultsChart(results, yourChoices)}
+            formatValue={percent}
+          />
+          <ApprovalNote results={results} />
+        </>
+      ) : null}
+      {results.voters > 0 && !compact ? (
+        <Counts results={results} yours={yours} summary />
       ) : null}
     </div>
   );
@@ -129,17 +136,19 @@ function Counts({
   results,
   yours,
   summary,
-  vertical,
 }: {
   results: Results;
   yours: readonly ChoiceResult[];
   summary: boolean;
-  vertical: boolean;
 }) {
   const isYours = (choice: ChoiceResult) =>
     yours.some((one) => one.index === choice.index);
-  /* The original horizontal rows use the widest choice as their scale. The
-   * compact vertical bars use the percentages themselves against 100. */
+  /**
+   * The widest share on screen, so the bars are read against each other rather
+   * than against a hundred that nothing may reach. An `approval` poll can push
+   * a single share past most of the scale and a `single` poll can leave every
+   * bar short; both look wrong drawn against a fixed 100.
+   */
   const widest = results.choices.reduce(
     (most, one) => Math.max(most, one.share),
     0,
@@ -162,14 +171,6 @@ function Counts({
         </p>
       ) : null}
 
-      {vertical ? (
-        <p className="results__denominators">
-          {anyConfirmed
-            ? `Left bar: share of ${allVotes(results.voters)}. Right bar: share of the ${results.confirmedVoters} confirmed by email.`
-            : `Each bar is a share of ${allVotes(results.voters)}.`}
-        </p>
-      ) : null}
-
       <ul className="results__list">
         {results.choices.map((choice) => (
           <li
@@ -187,24 +188,11 @@ function Counts({
               className="results__bar"
               aria-hidden="true"
               style={
-                {
-                  "--fill": `${vertical ? choice.share : scale(choice.share, widest)}%`,
-                } as CSSProperties
+                { "--fill": `${scale(choice.share, widest)}%` } as CSSProperties
               }
             />
             <span className="results__figure">
-              {vertical ? (
-                <>
-                  <span aria-hidden="true">{choice.share}%</span>
-                  <span className="results__spoken">
-                    {choice.count} · {choice.share}% of all votes
-                  </span>
-                </>
-              ) : (
-                <>
-                  {choice.count} · {choice.share}%
-                </>
-              )}
+              {choice.count} · {choice.share}%
             </span>
             {anyConfirmed ? (
               <>
@@ -213,25 +201,12 @@ function Counts({
                   aria-hidden="true"
                   style={
                     {
-                      "--fill": `${vertical ? choice.confirmedShare : scale(choice.confirmedShare, widestConfirmed)}%`,
+                      "--fill": `${scale(choice.confirmedShare, widestConfirmed)}%`,
                     } as CSSProperties
                   }
                 />
                 <span className="results__figure results__figure--confirmed">
-                  {vertical ? (
-                    <>
-                      <span aria-hidden="true">{choice.confirmedShare}%</span>
-                      <span className="results__spoken">
-                        {choice.confirmedCount} · {choice.confirmedShare}%
-                        confirmed by email
-                      </span>
-                    </>
-                  ) : (
-                    <>
-                      {choice.confirmedCount} · {choice.confirmedShare}%
-                      confirmed
-                    </>
-                  )}
+                  {choice.confirmedCount} · {choice.confirmedShare}% confirmed
                 </span>
               </>
             ) : null}
@@ -239,14 +214,18 @@ function Counts({
         ))}
       </ul>
 
-      {results.method === "approval" ? (
-        <p className="results__fine">
-          People could pick more than one, so these add up to more than
-          everybody.
-        </p>
-      ) : null}
+      <ApprovalNote results={results} />
     </>
   );
+}
+
+/** Approval shares add up past 100%; say why before anyone wonders. */
+function ApprovalNote({ results }: { results: Results }) {
+  return results.method === "approval" ? (
+    <p className="results__fine">
+      People could pick more than one, so these add up to more than everybody.
+    </p>
+  ) : null;
 }
 
 /** "A", "A and B", "A, B and C" - each label in bold. */
@@ -289,9 +268,4 @@ function howMany(results: Results, ended: boolean): string {
 /** A bar's width as a share of the widest one, never dividing by zero. */
 function scale(share: number, widest: number): number {
   return widest === 0 ? 0 : Math.round((share / widest) * 100);
-}
-
-/** "all 10 votes", or "the 1 vote": "all 1 vote" reads wrong. */
-function allVotes(voters: number): string {
-  return voters === 1 ? "the 1 vote" : `all ${voters} votes`;
 }

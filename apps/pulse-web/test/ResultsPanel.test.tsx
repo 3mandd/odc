@@ -1,5 +1,11 @@
 // @vitest-environment jsdom
-import { cleanup, render, screen, fireEvent } from "@testing-library/react";
+import {
+  cleanup,
+  render,
+  screen,
+  fireEvent,
+  within,
+} from "@testing-library/react";
 import { createRef } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ResultsPanel } from "../src/components/ResultsPanel.js";
@@ -202,7 +208,7 @@ describe("showing where a question stands", () => {
       ended: true,
     });
     expect(screen.getByText("Nobody answered this one.")).toBeTruthy();
-    expect(document.querySelector(".results__bar")).toBeNull();
+    expect(screen.queryByRole("figure")).toBeNull();
     expect(screen.queryByText(/0 votes/)).toBeNull();
     expect(screen.queryByText(/confirmed/)).toBeNull();
     // Still a way out.
@@ -378,9 +384,10 @@ describe("confirmed by email (#353)", () => {
 });
 
 describe("compact question-page results (#453)", () => {
-  it("labels separate denominators and uses actual shares for vertical bars", () => {
+  it("draws one chart of shares, with both denominators named and read out in full", () => {
     show({
       compact: true,
+      yourChoices: [0],
       results: results({
         method: "approval",
         voters: 10,
@@ -405,34 +412,32 @@ describe("compact question-page results (#453)", () => {
         ],
       }),
     });
+    const chart = screen.getByRole("figure", { name: "How people answered" });
+    // The legend names both denominators; the table says each figure in full.
     expect(
-      screen.getByText(
-        "Left bar: share of all 10 votes. Right bar: share of the 4 confirmed by email.",
-      ),
-    ).toBeTruthy();
-    // Drawn as the bare percentage; read out with its count and denominator.
-    const library = screen.getByText("Library").closest("li")!;
-    expect(
-      [...library.querySelectorAll('[aria-hidden="true"]')].map(
-        (one) => one.textContent,
-      ),
-    ).toEqual(["", "70%", "", "25%"]);
-    expect(screen.getByText("7 · 70% of all votes")).toBeTruthy();
-    expect(screen.getByText("1 · 25% confirmed by email")).toBeTruthy();
-    expect(screen.getByText(/more than everybody/)).toBeTruthy();
-    const bars = [...document.querySelectorAll<HTMLElement>(".results__bar")];
-    expect(bars.map((bar) => bar.style.getPropertyValue("--fill"))).toEqual([
-      "70%",
-      "25%",
-      "60%",
-      "75%",
+      within(chart)
+        .getAllByRole("columnheader")
+        .map((cell) => cell.textContent),
+    ).toEqual([
+      "How people answered",
+      "All votes (10)",
+      "Confirmed by email (4)",
     ]);
+    expect(chart.querySelector(".bar-chart__legend")?.textContent).toBe(
+      "All votes (10)Confirmed by email (4)",
+    );
+    const library = within(chart).getByRole("rowheader", {
+      name: "Library (yours)",
+    }).parentElement!;
     expect(
-      bars.every((bar) => bar.getAttribute("aria-hidden") === "true"),
-    ).toBe(true);
+      [...library.querySelectorAll("td")].map((cell) => cell.textContent),
+    ).toEqual(["7 votes · 70%", "1 confirmed · 25%"]);
+    expect(screen.getByText(/more than everybody/)).toBeTruthy();
+    // No row-per-answer list in the banner: the chart replaces it.
+    expect(document.querySelector(".results__list")).toBeNull();
   });
 
-  it("names one denominator and draws one bar per answer when nobody confirmed", () => {
+  it("draws one series, with no legend, when nobody confirmed", () => {
     show({
       compact: true,
       results: results({
@@ -450,10 +455,9 @@ describe("compact question-page results (#453)", () => {
         ],
       }),
     });
-    expect(
-      screen.getByText("Each bar is a share of all 3 votes."),
-    ).toBeTruthy();
-    expect(document.querySelectorAll(".results__bar")).toHaveLength(1);
+    const chart = screen.getByRole("figure", { name: "How people answered" });
+    expect(within(chart).queryByText(/Confirmed by email/)).toBeNull();
+    expect(within(chart).getAllByRole("columnheader")).toHaveLength(2);
   });
 
   it("keeps an empty closed result readable without drawing bars", () => {

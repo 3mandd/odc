@@ -1,0 +1,104 @@
+/*
+ * BarChart: a white card holding a Recharts SVG. The library sets fills as SVG
+ * attributes; these rules override them with the --chart-* tokens, since CSS
+ * beats a presentation attribute.
+ */
+.bar-chart {
+  margin: 0;
+  padding: calc(var(--step) * 2);
+  border-radius: var(--r-control);
+  background: var(--chart-surface);
+  color: var(--chart-ink);
+}
+.bar-chart__caption {
+  margin: 0 0 var(--step);
+  font-size: var(--t-small);
+  font-weight: 600;
+  color: var(--chart-ink);
+}
+.bar-chart__legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: calc(var(--step) / 2) calc(var(--step) * 2);
+  margin: 0 0 var(--step);
+  padding: 0;
+  list-style: none;
+  font-size: var(--t-small);
+  color: var(--chart-ink-muted);
+}
+.bar-chart__legend li {
+  display: flex;
+  align-items: center;
+  gap: calc(var(--step) / 2);
+}
+.bar-chart__swatch {
+  display: inline-block;
+  flex: none;
+  width: calc(var(--step) * 1.25);
+  height: calc(var(--step) * 1.25);
+  margin-inline-end: calc(var(--step) / 2);
+  border-radius: calc(var(--step) / 4);
+}
+.bar-chart__swatch--1 {
+  background: var(--chart-series-1);
+}
+.bar-chart__swatch--2 {
+  background: var(--chart-series-2);
+}
+.bar-chart__plot {
+  width: 100%;
+  min-width: 0;
+}
+.bar-chart__series--1 .recharts-rectangle {
+  fill: var(--chart-series-1);
+}
+.bar-chart__series--2 .recharts-rectangle {
+  fill: var(--chart-series-2);
+}
+.bar-chart__grid line {
+  stroke: var(--chart-grid);
+}
+.bar-chart .recharts-cartesian-axis-line {
+  stroke: var(--chart-grid);
+}
+.bar-chart .recharts-cartesian-axis-tick-value,
+.bar-chart__tick,
+.bar-chart__value {
+  fill: var(--chart-ink-muted);
+  font-size: var(--t-small);
+}
+.bar-chart__tick--bold {
+  fill: var(--chart-ink);
+  font-weight: 700;
+}
+.bar-chart__cursor {
+  fill: var(--chart-cursor);
+}
+.bar-chart__tooltip {
+  padding: var(--step);
+  border: var(--hairline) solid var(--chart-grid);
+  border-radius: var(--r-control);
+  background: var(--chart-surface);
+  color: var(--chart-ink);
+  font-size: var(--t-small);
+  box-shadow: var(--shadow-ballot);
+}
+.bar-chart__tooltip p {
+  display: flex;
+  align-items: center;
+  margin: 0;
+}
+.bar-chart__tooltip-label {
+  font-weight: 700;
+  margin-bottom: calc(var(--step) / 2);
+}
+/* Read out, never drawn: the same figures as the chart, in full. */
+.bar-chart__table {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}

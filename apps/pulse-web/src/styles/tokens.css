@@ -166,4 +166,19 @@
   --dialog-w: calc(var(--frame-w) - var(--gutter) * 2);
   --dialog-h: calc(100dvh - var(--gutter) * 2);
   --motion-quick: 0.16s;
+
+  /*
+   * Charts (BarChart). A white card on the dark page, so a chart reads like a
+   * printed figure. Series colours are the first two slots of the validated
+   * categorical palette (dataviz skill, references/palette.md): they pass the
+   * colour-blindness and contrast checks against this surface. Add a slot in
+   * that order, never a new hue, and re-run its validator.
+   */
+  --chart-surface: #ffffff;
+  --chart-ink: #0b0b0b;
+  --chart-ink-muted: #52514e;
+  --chart-grid: #e6e5e1;
+  --chart-cursor: rgba(11, 11, 11, 0.05);
+  --chart-series-1: #2a78d6;
+  --chart-series-2: #eb6834;
 }

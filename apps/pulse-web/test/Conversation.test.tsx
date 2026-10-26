@@ -217,7 +217,7 @@ it("keeps the saved answer and its results when backing out of a change", async 
     name: "How people answered",
   });
   expect(
-    within(standing).getByText(/yours/i).closest("li")?.textContent,
+    within(standing).getByRole("rowheader", { name: /\(yours\)/ }).textContent,
   ).toMatch(/Yes/);
   expect(cast).toHaveBeenCalledExactlyOnceWith(p.id, [1]);
   // Reopening starts from the saved choice, not the unsent one.
@@ -366,7 +366,9 @@ it("sends every approval pick, follows its lowest-index edge, and retains the co
   await user.click(within(card()).getByRole("button", { name: "Submit" }));
   await main().findByText("Counted");
   expect(cast).toHaveBeenCalledExactlyOnceWith(p.id, [1, 0]);
-  expect(within(card()).getAllByText("yours")).toHaveLength(2);
+  expect(
+    within(card()).getAllByRole("rowheader", { name: /\(yours\)/ }),
+  ).toHaveLength(2);
   await user.click(within(card()).getByRole("button", { name: "Next" }));
   expect(
     await main().findByRole("heading", { name: second.question, level: 1 }),
