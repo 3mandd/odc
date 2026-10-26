@@ -88,6 +88,13 @@ it("keeps a manually closed card closed and preserves its unsent pick on reopen"
   await main().findByRole("heading", { name: poll().question, level: 1 });
   await user.click(within(card()).getByRole("radio", { name: "Yes" }));
   await user.click(within(card()).getByRole("button", { name: "Close" }));
+  // Closing leaves a handle in the drawer, and focus on it.
+  expect(document.activeElement).toBe(
+    within(screen.getByRole("complementary", { name: "Voting" })).getByRole(
+      "button",
+      { name: "Vote" },
+    ),
+  );
   await user.click(screen.getByRole("heading", { name: "Answered" }));
   expect(main().queryByRole("region")).toBeNull();
   await user.click(main().getByRole("button", { name: "Vote" }));
@@ -168,6 +175,121 @@ it("keeps results under the answer while the bottom drawer is only for voting", 
   );
   expect(within(drawer).getByRole("button", { name: "Submit" })).toBeTruthy();
   expect(cast).toHaveBeenCalledTimes(2);
+});
+
+it("keeps the saved answer and its results when backing out of a change", async () => {
+  const p = poll();
+  const cast = vi.fn(
+    async (_id: string, ballot: Ballot): Promise<CastOutcome> => ({
+      status: "counted",
+      ballot,
+      results: tally(p, ballot),
+    }),
+  );
+  render(<Conversation api={stubApi({ cast })} pollId={p.id} />);
+  await main().findByRole("heading", { name: p.question, level: 1 });
+  const user = await answer();
+  const drawer = screen.getByRole("complementary", { name: "Voting" });
+  await user.click(
+    within(drawer).getByRole("button", { name: "Change my answer" }),
+  );
+  await user.click(within(drawer).getByRole("radio", { name: "No" }));
+  await user.click(within(drawer).getByRole("button", { name: "Close" }));
+  const handle = within(drawer).getByRole("button", {
+    name: "Change my answer",
+  });
+  expect(document.activeElement).toBe(handle);
+  const row = main().getByText("You picked Yes.").closest("li")!;
+  const standing = within(row).getByRole("group", {
+    name: "How people answered",
+  });
+  expect(
+    within(standing).getByText(/yours/i).closest("li")?.textContent,
+  ).toMatch(/Yes/);
+  expect(cast).toHaveBeenCalledExactlyOnceWith(p.id, [1]);
+  // Reopening starts from the saved choice, not the unsent one.
+  await user.click(handle);
+  expect(within(drawer).getByRole("radio", { name: "Yes" })).toHaveProperty(
+    "checked",
+    true,
+  );
+  expect(within(drawer).getByRole("radio", { name: "No" })).toHaveProperty(
+    "checked",
+    false,
+  );
+});
+
+it.each([
+  {
+    failure: "a refusal",
+    error: new ApiError(409, "That did not go through."),
+    restores: true,
+  },
+  {
+    failure: "a lost connection",
+    error: new Error("offline"),
+    restores: false,
+  },
+])(
+  "after $failure, closing a change restores the saved answer only if the server refused",
+  async ({ error, restores }) => {
+    const p = poll();
+    const cast = vi
+      .fn()
+      .mockResolvedValueOnce({
+        status: "counted",
+        ballot: [1],
+        results: tally(p, [1]),
+      })
+      .mockRejectedValueOnce(error);
+    render(<Conversation api={stubApi({ cast })} pollId={p.id} />);
+    await main().findByRole("heading", { name: p.question, level: 1 });
+    const user = await answer();
+    const drawer = screen.getByRole("complementary", { name: "Voting" });
+    await user.click(
+      within(drawer).getByRole("button", { name: "Change my answer" }),
+    );
+    await user.click(within(drawer).getByRole("radio", { name: "No" }));
+    await user.click(within(drawer).getByRole("button", { name: "Submit" }));
+    await within(drawer).findByRole("alert");
+    await user.click(within(drawer).getByRole("button", { name: "Close" }));
+    const results = main().queryByRole("group", {
+      name: "How people answered",
+    });
+    if (restores) {
+      expect(results).not.toBeNull();
+      expect(
+        within(drawer).getByRole("button", { name: "Change my answer" }),
+      ).toBeTruthy();
+    } else {
+      // The new answer may have been stored: show no counts that claim Yes.
+      expect(results).toBeNull();
+      expect(within(drawer).getByRole("button", { name: "Vote" })).toBeTruthy();
+    }
+  },
+);
+
+it("names the closed question's handle Show question, not Vote", async () => {
+  const p = poll({ open: false });
+  const user = userEvent.setup();
+  render(
+    <Conversation
+      api={stubApi({
+        poll: async () => p,
+        results: async () => results(),
+        myBallot: async () => null,
+      })}
+      pollId={p.id}
+    />,
+  );
+  await main().findByRole("heading", { name: p.question, level: 1 });
+  await user.click(within(card()).getByRole("button", { name: "Close" }));
+  const drawer = screen.getByRole("complementary", { name: "Voting" });
+  expect(within(drawer).queryByRole("button", { name: "Vote" })).toBeNull();
+  const handle = within(drawer).getByRole("button", { name: "Show question" });
+  expect(document.activeElement).toBe(handle);
+  await user.click(handle);
+  expect(within(card()).getByText("This one has closed.")).toBeTruthy();
 });
 
 it("opens the next question's card even if the previous card was closed (#401)", async () => {
@@ -314,12 +436,15 @@ it("handles a poll closing during submit without offering another cast", async (
   const cast = vi.fn(async () => ({ status: "closed" as const }));
   render(<Conversation api={stubApi({ cast })} pollId="ads-free" />);
   await main().findByRole("heading", { name: poll().question, level: 1 });
+  const note = main().getByText(closingNote(poll()));
   openCard();
   const user = userEvent.setup();
   await user.click(within(card()).getByRole("radio", { name: "Yes" }));
   await user.click(within(card()).getByRole("button", { name: "Submit" }));
   expect(await main().findByText("This one has closed.")).toBeTruthy();
   expect(within(card()).queryByRole("button", { name: "Submit" })).toBeNull();
+  expect(main().getByText("This question has closed.")).toBe(note);
+  expect(main().queryByText(closingNote(poll()))).toBeNull();
   expect(cast).toHaveBeenCalledOnce();
 });
 it("a failed send keeps the picks for retry", async () => {
@@ -656,14 +781,7 @@ it("does not offer to forget to someone who is signed in", async () => {
   ).toBeNull();
 });
 
-/*
- * Operator walkthrough, 2026-10-21: on a phone the question and its closing
- * date were drawn twice, at the top of the page and in the card that is open
- * on load. The card says them; the page heading stays for focus and screen
- * readers, and is merged out of sight (`.conversation__hero--merged`) until
- * the card is closed.
- */
-it("says the question and closing date once while the card is open", async () => {
+it("keeps the closing note in the same page node when voting opens and closes", async () => {
   const p = poll({ closesAt: "2030-05-01T12:00:00.000Z" });
   const user = userEvent.setup();
   render(<Conversation api={stubApi({ poll: async () => p })} pollId={p.id} />);
@@ -671,16 +789,18 @@ it("says the question and closing date once while the card is open", async () =>
     name: p.question,
     level: 1,
   });
-  await waitFor(() => expect(document.activeElement).toBe(heading));
-  expect(heading.closest(".conversation__hero--merged")).not.toBeNull();
+  const hero = heading.parentElement!;
+  const note = within(hero).getByText(closingNote(p));
   expect(screen.getAllByText(closingNote(p))).toHaveLength(1);
-
+  expect(within(card()).queryByText(closingNote(p))).toBeNull();
   await user.click(within(card()).getByRole("button", { name: "Close" }));
-  const shown = main().getByRole("heading", { name: p.question, level: 1 });
-  expect(shown.closest(".conversation__hero--merged")).toBeNull();
+  expect(within(hero).getByText(closingNote(p))).toBe(note);
+  await user.click(main().getByRole("button", { name: "Vote" }));
+  expect(within(hero).getByText(closingNote(p))).toBe(note);
   expect(screen.getAllByText(closingNote(p))).toHaveLength(1);
-  // The same heading node throughout, so focus on it is never dropped.
-  expect(shown).toBe(heading);
+  expect(main().getByRole("heading", { name: p.question, level: 1 })).toBe(
+    heading,
+  );
 });
 
 it("leaves out the 'Opens another question' hint under choices", async () => {
